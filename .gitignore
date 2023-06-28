@@ -19,3 +19,26 @@
 
 # Go workspace file
 go.work
+
+# Dapper
+.dapper
+/Dockerfile.dapper*
+!/Dockerfile.dapper
+
+# VSCode
+/.vscode/
+
+# Build files
+/bin/
+/dist/
+/cce-operator
+
+# Generated code
+# zz_*
+# /pkg/generated
+
+# macOS
+.DS_Store
+
+# Temp files
+/tmp*

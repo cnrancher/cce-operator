@@ -1,0 +1,68 @@
+apiVersion: cce.pandaria.io/v1
+kind: CCEClusterConfig
+metadata:
+  name: "c-m-create"
+spec:
+  credentialSecret: "cattle-global-data:cc-test-cce"
+  category: "CCE"
+  region: "cn-north-1"
+  clusterID: ""
+  imported: false
+  name: "test-create-1"
+  labels:
+    label-name: "label-value"
+  type: "VirtualMachine"
+  flavor: "cce.s1.small"
+  version: "v1.23"
+  description: "example create cluster"
+  ipv6Enable: false
+  hostNetwork:
+    vpcID: "d5842876-29a6-4751-87bd-7c4af4cf2f47"
+    subnetID: "c3a34386-5212-4484-be9c-1220807c4cfa"
+  containerNetwork:
+    mode: "overlay_l2"
+    cidr: "172.16.123.0/24"
+    # cidrs:
+    #   - "172.16.123.0/24"
+  eniNetwork:
+    subnets:
+  authentication:
+    mode: "rbac"
+    authenticatingProxy:
+      ca:
+      cert:
+      privateKey:
+  clusterBillingMode: 0
+  kubernetesSvcIPRange: "10.3.4.0/24"
+  tags:
+    tag-key: "tag-value2"
+  kubeProxyMode:
+  nodeConfigs:
+    - name: "" # name is created by cce-operator
+      nodeID: ""
+      flavor: "t6.large.2" # cheapest flavor for testing purpose
+      availableZone: "cn-north-1a"
+      sshKey: "Starry-huawei-beijing1"
+      rootVolume:
+        size: 40
+        type: "SSD"
+      dataVolumes:
+        - size: 100
+          type: "SSD"
+      billingMode: 0
+      count: 1
+      operatingSystem: "EulerOS 2.9"
+      publicIP:
+        count: 0
+        eip:
+          ipType: "5_bgp"
+          bandwidth:
+            chargeMode: "traffic"
+            size: 1
+            shareType: "PER"
+      extendParam:
+        periodType:
+        periodNum:
+        isAutoRenew:
+      labels:
+        node-label-key: "node-label-value"
