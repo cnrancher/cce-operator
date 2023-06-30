@@ -16,7 +16,7 @@ import (
 func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
 	h.log = logrus.WithFields(logrus.Fields{
 		"cluster": config.Name,
-		"phase":   config.Status.Phase,
+		"phase":   "remove",
 	})
 	if config.Spec.Imported {
 		h.log.Infof("cluster [%s] is imported, will not delete CCE cluster", config.Name)
@@ -37,9 +37,8 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 		refresh bool
 		err     error
 	)
-	refresh = true
-	for refresh {
-		config, refresh, err = h.deleteCCEClusterNodes(config)
+	for refresh = true; refresh; {
+		config, refresh, err = h.deleteCCEClusterNodePools(config)
 		if err != nil {
 			return config, err
 		}
@@ -48,8 +47,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 		}
 	}
 
-	refresh = true
-	for refresh {
+	for refresh = true; refresh; {
 		config, refresh, err = h.deleteCCECluster(config)
 		if err != nil {
 			return config, err
@@ -59,8 +57,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 		}
 	}
 
-	refresh = true
-	for refresh {
+	for refresh = true; refresh; {
 		config, refresh, err = h.deleteNetworkResources(config)
 		if err != nil {
 			return config, err
@@ -75,7 +72,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 	return config, nil
 }
 
-func (h *Handler) deleteCCEClusterNodes(
+func (h *Handler) deleteCCEClusterNodePools(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
 	// Cluster or nodes were already deleted.
@@ -114,28 +111,35 @@ func (h *Handler) deleteCCEClusterNodes(
 		}
 	}
 	// Cluster nodes are available to delete.
+	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Status.ClusterID, false)
+	if err != nil {
+		return config, false, err
+	}
+	if nodePools.Items == nil {
+		return config, true, fmt.Errorf("cce.GetClusterNodePools returns invalid value")
+	}
 	var enqueueNode bool = false
-	for _, node := range *nodes.Items {
-		if node.Status == nil || node.Status.Phase == nil || node.Metadata == nil {
+	for _, np := range *nodePools.Items {
+		if np.Metadata == nil {
 			continue
 		}
-		_, err := cce.DeleteNode(h.driver.CCE, config.Status.ClusterID, *node.Metadata.Uid)
+		_, err := cce.DeleteNodePool(h.driver.CCE, config.Status.ClusterID, *np.Metadata.Uid)
 		if err != nil {
-			return config, false, fmt.Errorf("error delete node [%s]: %w",
-				*node.Metadata.Name, err)
+			return config, false, fmt.Errorf("error delete node pool [%s]: %w",
+				np.Metadata.Name, err)
 		}
-		h.log.Infof("request to delete node [%s], ID [%s]",
-			*node.Metadata.Name, *node.Metadata.Uid)
+		h.log.Infof("request to delete node pool [%s], ID [%s]",
+			np.Metadata.Name, utils.GetValue(np.Metadata.Uid))
 		enqueueNode = true
 	}
 	if enqueueNode {
-		// Requeue to waiting for nodes deleted.
+		// Requeue to waiting for node pools deleted.
 		return config, true, nil
 	}
 
 	// Cluster nodes were deleted, update status.
 	config = config.DeepCopy()
-	config.Status.NodeConfigs = []ccev1.NodeConfig{}
+	config.Status.NodePools = []ccev1.NodePool{}
 	config, err = h.cceCC.UpdateStatus(config)
 	return config, false, err
 }

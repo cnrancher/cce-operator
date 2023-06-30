@@ -44,9 +44,10 @@ func WaitForCompleteWithError(f func() error) error {
 	}
 }
 
+// RandomString generates a hexadecimal random number
 func RandomString(length int) string {
 	rand.Seed(time.Now().UnixNano())
-	chars := []byte("abcdefghijklmnopqrstuvwxyz0123456789")
+	chars := []byte("abcdef0123456789")
 	var b strings.Builder
 	for i := 0; i < length; i++ {
 		b.WriteByte(chars[rand.Intn(len(chars))])

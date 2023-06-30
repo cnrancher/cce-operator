@@ -12,26 +12,25 @@ import (
 func BuildUpstreamClusterState(
 	client *huawei_cce.CceClient,
 	cluster *huawei_cce_model.ShowClusterResponse,
-	nodes *huawei_cce_model.ListNodesResponse,
+	nodePools *huawei_cce_model.ListNodePoolsResponse,
 ) (*ccev1.CCEClusterConfigSpec, error) {
-	if cluster == nil || nodes == nil {
-		return nil, fmt.Errorf("cluster or nodes is nil pointer")
+	if cluster == nil || nodePools == nil {
+		return nil, fmt.Errorf("BuildUpstreamClusterState: cluster or nodes is nil pointer")
 	}
 	if cluster.Metadata == nil || cluster.Spec == nil {
 		return nil, fmt.Errorf(
 			"failed to get cluster from CCE API: Metadata or Spec is nil")
 	}
 	newSpec := &ccev1.CCEClusterConfigSpec{
-		CredentialSecret: "",
-		RegionID:         utils.GetValue(cluster.Spec.Az),
-		Imported:         false,
-		Name:             cluster.Metadata.Name,
-		Labels:           cluster.Metadata.Labels,
-		Type:             cluster.Spec.Type.Value(),
-		Flavor:           cluster.Spec.Flavor,
-		Version:          utils.GetValue(cluster.Spec.Version),
-		BillingMode:      utils.GetValue(cluster.Spec.BillingMode),
-		// ExternalServiceEnabled: false, // TODO: always false
+		CredentialSecret:     "",
+		RegionID:             utils.GetValue(cluster.Spec.Az),
+		Imported:             false,
+		Name:                 cluster.Metadata.Name,
+		Labels:               cluster.Metadata.Labels,
+		Type:                 cluster.Spec.Type.Value(),
+		Flavor:               cluster.Spec.Flavor,
+		Version:              utils.GetValue(cluster.Spec.Version),
+		BillingMode:          utils.GetValue(cluster.Spec.BillingMode),
 		KubernetesSvcIPRange: utils.GetValue(cluster.Spec.KubernetesSvcIpRange),
 	}
 	if cluster.Spec.HostNetwork != nil {
@@ -51,97 +50,126 @@ func BuildUpstreamClusterState(
 		}
 	}
 	var err error
-	newSpec.NodeConfigs, err = BuildUpstreamNodeConfigs(client, nodes)
+	newSpec.NodePools, err = BuildUpstreamNodePoolConfigs(client, nodePools)
 	if err != nil {
 		return nil, err
 	}
 	return newSpec, nil
 }
 
-func BuildUpstreamNodeConfigs(
-	client *huawei_cce.CceClient, nodes *huawei_cce_model.ListNodesResponse,
-) ([]ccev1.NodeConfig, error) {
-	if nodes == nil {
-		return nil, fmt.Errorf("nodes is nil pointer")
+func BuildUpstreamNodePoolConfigs(
+	client *huawei_cce.CceClient, nodePoolsRes *huawei_cce_model.ListNodePoolsResponse,
+) ([]ccev1.NodePool, error) {
+	if nodePoolsRes == nil || nodePoolsRes.Items == nil {
+		return nil, fmt.Errorf("BuildUpstreamNodePoolConfigs: invalid nil parameter")
 	}
-	nodeConfigs := []ccev1.NodeConfig{}
-	if nodes.Items == nil || len(*nodes.Items) == 0 {
-		return nodeConfigs, nil
+	var nodePools []ccev1.NodePool = make([]ccev1.NodePool, 0, len(*nodePoolsRes.Items))
+	if len(*nodePoolsRes.Items) == 0 {
+		return nodePools, nil
 	}
 
-	for _, n := range *nodes.Items {
-		if n.Metadata == nil || n.Spec == nil {
+	for _, n := range *nodePoolsRes.Items {
+		if n.Metadata == nil || n.Spec == nil || n.Spec.Type == nil ||
+			n.Spec.NodeTemplate == nil || n.Spec.Autoscaling == nil {
 			continue
 		}
-		config := ccev1.NodeConfig{
-			Name:            utils.GetValue(n.Metadata.Name),
-			NodeID:          utils.GetValue(n.Metadata.Uid),
-			Flavor:          n.Spec.Flavor,
-			AvailableZone:   n.Spec.Az,
-			Count:           utils.GetValue(n.Spec.Count),
-			BillingMode:     utils.GetValue(n.Spec.BillingMode),
-			OperatingSystem: utils.GetValue(n.Spec.Os),
+		config := ccev1.NodePool{
+			Name: n.Metadata.Name,
+			Type: n.Spec.Type.Value(),
+			ID:   utils.GetValue(n.Metadata.Uid),
+			NodeTemplate: ccev1.NodeTemplate{
+				Flavor:          n.Spec.NodeTemplate.Flavor,
+				AvailableZone:   n.Spec.NodeTemplate.Az,
+				OperatingSystem: utils.GetValue(n.Spec.NodeTemplate.Os),
+				Count:           utils.GetValue(n.Spec.NodeTemplate.Count),
+				BillingMode:     utils.GetValue(n.Spec.NodeTemplate.BillingMode),
+			},
+			InitialNodeCount: utils.GetValue(n.Spec.InitialNodeCount),
+			Autoscaling: ccev1.NodePoolNodeAutoscaling{
+				Enable:                utils.GetValue(n.Spec.Autoscaling.Enable),
+				MinNodeCount:          utils.GetValue(n.Spec.Autoscaling.MinNodeCount),
+				MaxNodeCount:          utils.GetValue(n.Spec.Autoscaling.MaxNodeCount),
+				ScaleDownCooldownTime: utils.GetValue(n.Spec.Autoscaling.ScaleDownCooldownTime),
+				Priority:              utils.GetValue(n.Spec.Autoscaling.Priority),
+			},
 		}
-		if n.Spec.Login != nil && n.Spec.Login.SshKey != nil {
-			config.SSHKey = *n.Spec.Login.SshKey
+		if n.Spec.NodeTemplate.Login != nil && n.Spec.NodeTemplate.Login.SshKey != nil {
+			config.NodeTemplate.SSHKey = *n.Spec.NodeTemplate.Login.SshKey
 		}
-		if n.Spec.RootVolume != nil {
-			config.RootVolume = ccev1.Volume{
-				Size: n.Spec.RootVolume.Size,
-				Type: n.Spec.RootVolume.Volumetype,
+		if n.Spec.NodeTemplate.RootVolume != nil {
+			config.NodeTemplate.RootVolume = ccev1.Volume{
+				Size: n.Spec.NodeTemplate.RootVolume.Size,
+				Type: n.Spec.NodeTemplate.RootVolume.Volumetype,
 			}
 		}
-		if len(n.Spec.DataVolumes) > 0 {
-			for _, v := range n.Spec.DataVolumes {
-				config.DataVolumes = append(config.DataVolumes, ccev1.Volume{
-					Size: v.Size,
-					Type: v.Volumetype,
-				})
+		if len(n.Spec.NodeTemplate.DataVolumes) > 0 {
+			for _, v := range n.Spec.NodeTemplate.DataVolumes {
+				config.NodeTemplate.DataVolumes = append(config.NodeTemplate.DataVolumes,
+					ccev1.Volume{
+						Size: v.Size,
+						Type: v.Volumetype,
+					},
+				)
 			}
 		}
-		if n.Spec.PublicIP != nil {
-			config.PublicIP.Ids = utils.GetValue(n.Spec.PublicIP.Ids)
-			config.PublicIP.Count = utils.GetValue(n.Spec.Count)
-			if n.Spec.PublicIP.Eip != nil {
-				config.PublicIP.Eip.Iptype = n.Spec.PublicIP.Eip.Iptype
-				if n.Spec.PublicIP.Eip.Bandwidth != nil {
-					config.PublicIP.Eip.Bandwidth = ccev1.Bandwidth{
-						ChargeMode: utils.GetValue(n.Spec.PublicIP.Eip.Bandwidth.Chargemode),
-						Size:       utils.GetValue(n.Spec.PublicIP.Eip.Bandwidth.Size),
-						ShareType:  utils.GetValue(n.Spec.PublicIP.Eip.Bandwidth.Sharetype),
+		if n.Spec.NodeTemplate.PublicIP != nil {
+			config.NodeTemplate.PublicIP.Ids = utils.GetValue(n.Spec.NodeTemplate.PublicIP.Ids)
+			config.NodeTemplate.PublicIP.Count = utils.GetValue(n.Spec.NodeTemplate.Count)
+			if n.Spec.NodeTemplate.PublicIP.Eip != nil {
+				config.NodeTemplate.PublicIP.Eip.Iptype = n.Spec.NodeTemplate.PublicIP.Eip.Iptype
+				if n.Spec.NodeTemplate.PublicIP.Eip.Bandwidth != nil {
+					config.NodeTemplate.PublicIP.Eip.Bandwidth = ccev1.Bandwidth{
+						ChargeMode: utils.GetValue(n.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Chargemode),
+						Size:       utils.GetValue(n.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Size),
+						ShareType:  utils.GetValue(n.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Sharetype),
 					}
 				}
 			}
 		}
-		nodeConfigs = append(nodeConfigs, config)
+		if n.Spec.NodeTemplate.Runtime != nil && n.Spec.NodeTemplate.Runtime.Name != nil {
+			config.NodeTemplate.Runtime = n.Spec.NodeTemplate.Runtime.Name.Value()
+		}
+		if n.Spec.CustomSecurityGroups != nil && len(*n.Spec.CustomSecurityGroups) > 0 {
+			config.CustomSecurityGroups = append(config.CustomSecurityGroups, *n.Spec.CustomSecurityGroups...)
+		}
+		nodePools = append(nodePools, config)
 	}
-	return nodeConfigs, nil
+	return nodePools, nil
 }
 
-func CompareNode(a, b *ccev1.NodeConfig) bool {
-	if a.Flavor != b.Flavor ||
-		a.AvailableZone != b.AvailableZone ||
-		a.SSHKey != b.SSHKey ||
-		a.BillingMode != b.BillingMode ||
-		a.OperatingSystem != b.OperatingSystem {
+func CompareNodePool(a, b *ccev1.NodePool) bool {
+	// logrus.Debugf("compareNodePool: A: %v", utils.PrintObject(a))
+	// logrus.Debugf("compareNodePool: B: %v", utils.PrintObject(b))
+	if a.Name != b.Name || a.Type != b.Type {
+		return false
+	}
+	// TODO: compare Autoscaling, PodSecurityGroups, CustomSecurityGroups...
+	// Compare NodeTemplate
+	at := a.NodeTemplate
+	bt := b.NodeTemplate
+	if at.Flavor != bt.Flavor ||
+		at.AvailableZone != bt.AvailableZone ||
+		at.SSHKey != bt.SSHKey ||
+		at.BillingMode != bt.BillingMode ||
+		at.OperatingSystem != bt.OperatingSystem {
 		return false
 	}
 
-	if !CompareVolume(&a.RootVolume, &b.RootVolume) {
+	if !CompareVolume(&at.RootVolume, &bt.RootVolume) {
 		return false
 	}
 
-	if len(a.DataVolumes) != len(b.DataVolumes) {
+	if len(at.DataVolumes) != len(bt.DataVolumes) {
 		return false
 	}
 
-	if len(a.DataVolumes) == 0 {
+	if len(at.DataVolumes) == 0 {
 		return true
 	}
 
-	for _, ad := range a.DataVolumes {
+	for _, ad := range at.DataVolumes {
 		var found = false
-		for _, bd := range b.DataVolumes {
+		for _, bd := range bt.DataVolumes {
 			if CompareVolume(&ad, &bd) {
 				found = true
 				break

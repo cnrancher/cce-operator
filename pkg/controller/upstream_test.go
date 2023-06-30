@@ -8,13 +8,15 @@ import (
 )
 
 func Test_CompareNode(t *testing.T) {
-	a := ccev1.NodeConfig{}
-	b := ccev1.NodeConfig{}
+	a := ccev1.NodePool{}
+	b := ccev1.NodePool{}
 	assert := assert.New(t)
-	assert.True(CompareNode(&a, &b))
-	a = ccev1.NodeConfig{
-		Name:          "rancher-managed-node-abcde",
-		NodeID:        "abcde-12345",
+	assert.True(CompareNodePool(&a, &b))
+	a = ccev1.NodePool{
+		Name: "rancher-managed-node-abcde",
+		ID:   "abcde-12345",
+	}
+	a.NodeTemplate = ccev1.NodeTemplate{
 		Flavor:        "t6.large.2",
 		AvailableZone: "cn-north-1a",
 		SSHKey:        "test-ssh-key",
@@ -34,46 +36,43 @@ func Test_CompareNode(t *testing.T) {
 			Count: 0,
 		},
 		ExtendParam: ccev1.ExtendParam{},
-		Labels: map[string]string{
-			"label": "aaa",
-		},
-		Count: 1,
+		Count:       1,
 	}
 	b = a
 	b.Name = ""
-	b.NodeID = ""
-	assert.True(CompareNode(&a, &b))
-	b.Flavor = "c3.large.2"
-	assert.False(CompareNode(&a, &b))
+	b.ID = ""
+	assert.True(CompareNodePool(&a, &b))
+	b.NodeTemplate.Flavor = "c3.large.2"
+	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.AvailableZone = "cn-north-1b"
-	assert.False(CompareNode(&a, &b))
+	b.NodeTemplate.AvailableZone = "cn-north-1b"
+	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.SSHKey = ""
-	assert.False(CompareNode(&a, &b))
+	b.NodeTemplate.SSHKey = ""
+	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.RootVolume = ccev1.Volume{
+	b.NodeTemplate.RootVolume = ccev1.Volume{
 		Size: 50,
 		Type: "SSD",
 	}
-	assert.False(CompareNode(&a, &b))
+	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.DataVolumes = nil
-	assert.False(CompareNode(&a, &b))
+	b.NodeTemplate.DataVolumes = nil
+	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.DataVolumes = []ccev1.Volume{
+	b.NodeTemplate.DataVolumes = []ccev1.Volume{
 		{
 			Size: 110,
 			Type: "SSD",
 		},
 	}
-	assert.False(CompareNode(&a, &b))
+	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.BillingMode = 1
-	assert.False(CompareNode(&a, &b))
+	b.NodeTemplate.BillingMode = 1
+	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.OperatingSystem = "CentOS"
-	assert.False(CompareNode(&a, &b))
+	b.NodeTemplate.OperatingSystem = "CentOS"
+	assert.False(CompareNodePool(&a, &b))
 	// b = a
 	// b.PublicIP = ccev1.PublicIP{
 	// 	Count: 1,

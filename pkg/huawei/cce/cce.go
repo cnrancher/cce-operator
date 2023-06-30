@@ -5,7 +5,6 @@ import (
 
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	"github.com/cnrancher/cce-operator/pkg/huawei/common"
-	"github.com/cnrancher/cce-operator/pkg/utils"
 	huawei_utils "github.com/huaweicloud/huaweicloud-sdk-go-v3/core/utils"
 	cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
@@ -58,121 +57,6 @@ func DeleteCluster(client *cce.CceClient, ID string) (*model.DeleteClusterRespon
 	return client.DeleteCluster(&model.DeleteClusterRequest{
 		ClusterId: ID,
 	})
-}
-
-func CreateNode(
-	client *cce.CceClient, clusterID string, nodeConfig *ccev1.NodeConfig,
-) (*model.CreateNodeResponse, error) {
-	createNodeReq, err := getNodeRequirement(clusterID, nodeConfig)
-	if err != nil {
-		return nil, err
-	}
-	createNodeRes, err := client.CreateNode(createNodeReq)
-	if err != nil {
-		logrus.Warnf("error: %v, retry to create node for cluster %q...",
-			err, clusterID)
-		createNodeRes, err = client.CreateNode(createNodeReq)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create node(s) for cluster: %w", err)
-		}
-	}
-	return createNodeRes, nil
-}
-
-func GetClusterNodes(client *cce.CceClient, clusterID string) (*model.ListNodesResponse, error) {
-	request := &model.ListNodesRequest{
-		ClusterId: clusterID,
-	}
-	return client.ListNodes(request)
-}
-
-func GetNode(client *cce.CceClient, clusterID, nodeID string) (*model.ShowNodeResponse, error) {
-	request := &model.ShowNodeRequest{
-		ClusterId: clusterID,
-		NodeId:    nodeID,
-	}
-	return client.ShowNode(request)
-}
-
-func DeleteNode(
-	client *cce.CceClient, clusterID string, nodeID string,
-) (*model.DeleteNodeResponse, error) {
-	return client.DeleteNode(&model.DeleteNodeRequest{
-		ClusterId: clusterID,
-		NodeId:    nodeID,
-	})
-}
-
-func getNodeRequirement(
-	clusterID string, nc *ccev1.NodeConfig,
-) (*model.CreateNodeRequest, error) {
-	nodeCreateReq := &model.NodeCreateRequest{
-		Kind:       "Node",
-		ApiVersion: "v3",
-		Metadata: &model.NodeMetadata{
-			Name:   utils.GetPtr(common.GenResourceName("node")),
-			Labels: nc.Labels,
-		},
-		Spec: &model.NodeSpec{
-			Flavor: nc.Flavor,
-			Az:     nc.AvailableZone,
-			Os:     &nc.OperatingSystem,
-			Login: &model.Login{
-				SshKey:       &nc.SSHKey,
-				UserPassword: &model.UserPassword{},
-			},
-			RootVolume: &model.Volume{
-				Size:       nc.RootVolume.Size,
-				Volumetype: nc.RootVolume.Type,
-			},
-			DataVolumes: []model.Volume{},
-			PublicIP:    &model.NodePublicIp{},
-			Count:       utils.GetPtr(int32(nc.Count)),
-			BillingMode: utils.GetPtr(int32(nc.BillingMode)),
-			ExtendParam: nil,
-		},
-	}
-	for _, dv := range nc.DataVolumes {
-		nodeCreateReq.Spec.DataVolumes = append(nodeCreateReq.Spec.DataVolumes, model.Volume{
-			Size:       dv.Size,
-			Volumetype: dv.Type,
-		})
-	}
-	extendParam := &model.NodeExtendParam{
-		PeriodType:  &nc.ExtendParam.BMSPeriodType,
-		PeriodNum:   utils.GetPtr(int32(nc.ExtendParam.BMSPeriodNum)),
-		IsAutoRenew: &nc.ExtendParam.BMSIsAutoRenew,
-	}
-
-	if nc.ExtendParam.BMSPeriodType != "" &&
-		nc.ExtendParam.BMSPeriodNum != 0 &&
-		nc.ExtendParam.BMSIsAutoRenew != "" {
-		nodeCreateReq.Spec.ExtendParam = extendParam
-	}
-
-	if len(nc.PublicIP.Ids) > 0 {
-		nodeCreateReq.Spec.PublicIP.Ids = &nc.PublicIP.Ids
-	}
-	chargeMode := "traffic"
-	if nc.PublicIP.Eip.Bandwidth.ChargeMode != "traffic" {
-		chargeMode = ""
-	}
-	if nc.PublicIP.Count > 0 {
-		nodeCreateReq.Spec.PublicIP.Count = utils.GetPtr(int32(nc.PublicIP.Count))
-		nodeCreateReq.Spec.PublicIP.Eip = &model.NodeEipSpec{
-			Iptype: nc.PublicIP.Eip.Iptype,
-			Bandwidth: &model.NodeBandwidth{
-				Chargemode: &chargeMode,
-				Size:       utils.GetPtr(int32(nc.PublicIP.Eip.Bandwidth.Size)),
-				Sharetype:  &nc.PublicIP.Eip.Bandwidth.ShareType,
-			},
-		}
-	}
-	request := &model.CreateNodeRequest{
-		ClusterId: clusterID,
-		Body:      nodeCreateReq,
-	}
-	return request, nil
 }
 
 func GetClusterClient(client *cce.CceClient, cluster *model.ShowClusterResponse) (kubernetes.Interface, error) {

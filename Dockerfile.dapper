@@ -13,7 +13,6 @@ RUN zypper ref && \
 
 RUN curl -sL https://get.helm.sh/helm-v3.3.0-linux-${ARCH}.tar.gz | \
     tar xvzf - -C /usr/local/bin --strip-components=1
-# RUN go env -w  GOPROXY=https://goproxy.cn,direct
 # pre-copy/cache go.mod for pre-downloading dependencies
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify

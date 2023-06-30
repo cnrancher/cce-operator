@@ -8,6 +8,7 @@ import (
 
 	"github.com/cnrancher/cce-operator/pkg/huawei/cce"
 	"github.com/cnrancher/cce-operator/pkg/huawei/common"
+	"github.com/cnrancher/cce-operator/pkg/utils"
 	huawei_cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 )
 
@@ -51,4 +52,17 @@ func Test_GetCluster(t *testing.T) {
 	}
 	o, _ := json.MarshalIndent(cluster, "", "    ")
 	fmt.Printf("nodes.Items: \n%v\n", string(o))
+}
+
+func Test_GetClusterNodePools(t *testing.T) {
+	if client == nil {
+		return
+	}
+	nodePools, err := cce.GetClusterNodePools(client, "93b0243f-16eb-11ee-bdb7-0255ac1000c0", true)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	o := utils.PrintObject(nodePools)
+	fmt.Printf("%v\n", o)
 }

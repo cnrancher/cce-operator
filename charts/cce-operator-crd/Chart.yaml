@@ -1,0 +1,12 @@
+apiVersion: v2
+name: rancher-cce-operator-crd
+description: CCE Operator CustomResourceDefinitions
+version: 999
+appVersion: 999
+annotations:
+  catalog.cattle.io/certified: rancher
+  catalog.cattle.io/namespace: cattle-system
+  catalog.cattle.io/hidden: "true"
+  catalog.cattle.io/release-name: rancher-cce-operator-crd
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/permits-os: linux

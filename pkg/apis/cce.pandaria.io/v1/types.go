@@ -53,7 +53,7 @@ type CCEClusterConfigSpec struct {
 	KubernetesSvcIPRange string            `json:"kubernetesSvcIPRange,omitempty" norman:"noupdate"`
 	Tags                 map[string]string `json:"tags"`
 	KubeProxyMode        string            `json:"kubeProxyMode,omitempty"`
-	NodeConfigs          []NodeConfig      `json:"nodeConfigs,omitempty"`
+	NodePools            []NodePool        `json:"nodePools,omitempty"`
 }
 
 type CCEClusterConfigStatus struct {
@@ -63,11 +63,7 @@ type CCEClusterConfigStatus struct {
 	ClusterID        string           `json:"clusterID"`
 	HostNetwork      HostNetwork      `json:"hostNetwork"`
 	ContainerNetwork ContainerNetwork `json:"containerNetwork"`
-	ClusterEIPID     string           `json:"clusterEIPID,omitempty"`
-	ELBID            string           `json:"elbID,omitempty"`
-	PoolID           string           `json:"poolID,omitempty"`
-	VipSubnetID      string           `json:"vipSubnetID,omitempty"`
-	NodeConfigs      []NodeConfig     `json:"nodeConfigs,omitempty"`
+	NodePools        []NodePool       `json:"nodePools,omitempty"`
 }
 
 type HostNetwork struct {
@@ -97,20 +93,37 @@ type AuthenticatingProxy struct {
 	PrivateKey string `json:"privateKey,omitempty"`
 }
 
-type NodeConfig struct {
-	Name            string            `json:"name,omitempty"`
-	NodeID          string            `json:"nodeID,omitempty"`
-	Flavor          string            `json:"flavor"`
-	AvailableZone   string            `json:"availableZone"`
-	SSHKey          string            `json:"sshKey"`
-	RootVolume      Volume            `json:"rootVolume"`
-	DataVolumes     []Volume          `json:"dataVolumes"`
-	BillingMode     int32             `json:"billingMode"`
-	OperatingSystem string            `json:"operatingSystem"`
-	PublicIP        PublicIP          `json:"publicIP"`
-	ExtendParam     ExtendParam       `json:"extendParam"`
-	Labels          map[string]string `json:"labels"`
-	Count           int32             `json:"count"` // 批量创建节点时的数量
+type NodePool struct {
+	Name                 string                  `json:"name,omitempty"`   // 节点池名称
+	Type                 string                  `json:"type"`             // 节点池类型：vm, ElasticBMS, pm (default: vm)
+	ID                   string                  `json:"nodeID,omitempty"` // 节点池 ID，仅用于查询
+	NodeTemplate         NodeTemplate            `json:"nodeTemplate"`
+	InitialNodeCount     int32                   `json:"initialNodeCount"` // 节点池初始化节点个数。查询时为节点池目标节点数量。
+	Autoscaling          NodePoolNodeAutoscaling `json:"autoscaling"`
+	PodSecurityGroups    []string                `json:"podSecurityGroups"`
+	CustomSecurityGroups []string                `json:"customSecurityGroups"` // 节点池自定义安全组相关配置，未指定安全组ID，新建节点将添加 Node 节点默认安全组。
+}
+
+type NodeTemplate struct {
+	Flavor          string      `json:"flavor"`          // 节点池规格
+	AvailableZone   string      `json:"availableZone"`   // 可用区
+	OperatingSystem string      `json:"operatingSystem"` // 节点操作系统
+	SSHKey          string      `json:"sshKey"`          // SSH 密钥名称（不支持帐号密码登录）
+	RootVolume      Volume      `json:"rootVolume"`      // 节点的系统盘
+	DataVolumes     []Volume    `json:"dataVolumes"`     // 节点的数据盘
+	PublicIP        PublicIP    `json:"publicIP"`        // 节点公网IP
+	Count           int32       `json:"count"`           // 批量创建节点时的数量
+	BillingMode     int32       `json:"billingMode"`     // 节点计费模式
+	Runtime         string      `json:"runtime"`         // 容器运行时，docker 或 containerd
+	ExtendParam     ExtendParam `json:"extendParam"`     // 节点扩展参数
+}
+
+type NodePoolNodeAutoscaling struct {
+	Enable                bool  `json:"enable"`                // 是否开启自动扩缩容
+	MinNodeCount          int32 `json:"minNodeCount"`          // 若开启自动扩缩容，最小能缩容的节点个数
+	MaxNodeCount          int32 `json:"maxNodeCount"`          // 若开启自动扩缩容，最大能扩容的节点个数
+	ScaleDownCooldownTime int32 `json:"scaleDownCooldownTime"` // 节点保留时间，单位为分钟，扩容出来的节点在这个时间内不会被缩掉
+	Priority              int32 `json:"priority"`              // 节点池权重，更高的权重在扩容时拥有更高的优先级
 }
 
 type Volume struct {
@@ -125,18 +138,18 @@ type Bandwidth struct {
 }
 
 type Eip struct {
-	Iptype    string    `json:"ipType,omitempty"`
-	Bandwidth Bandwidth `json:"bandwidth,omitempty"`
+	Iptype    string    `json:"ipType,omitempty"`    // 弹性IP类型
+	Bandwidth Bandwidth `json:"bandwidth,omitempty"` // 弹性IP的带宽参数
 }
 
 type PublicIP struct {
-	Ids   []string `json:"ids,omitempty"`
-	Count int32    `json:"count,omitempty"`
-	Eip   Eip      `json:"eip,omitempty"`
+	Ids   []string `json:"ids,omitempty"`   // 已有的弹性IP的ID列表。数量不得大于待创建节点数
+	Count int32    `json:"count,omitempty"` // 要动态创建的弹性IP个数。
+	Eip   Eip      `json:"eip,omitempty"`   // 弹性IP参数。
 }
 
 type ExtendParam struct {
-	BMSPeriodType  string `json:"periodType,omitempty"`
-	BMSPeriodNum   int32  `json:"periodNum,omitempty"`
-	BMSIsAutoRenew string `json:"isAutoRenew,omitempty"`
+	PeriodType  string `json:"periodType,omitempty"`  // month / year, 作为请求参数，billingMode为1（包周期）或2（已废弃：自动付费包周期）时必选。
+	PeriodNum   int32  `json:"periodNum,omitempty"`   // 订购周期数
+	IsAutoRenew string `json:"isAutoRenew,omitempty"` // 是否自动续订
 }

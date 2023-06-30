@@ -5,7 +5,7 @@ metadata:
 spec:
   credentialSecret: "cattle-global-data:cc-test-cce"
   category: "CCE"
-  region: "cn-north-1"
+  regionID: "cn-north-1"
   clusterID: ""
   imported: false
   name: "test-create-1"
@@ -17,8 +17,8 @@ spec:
   description: "example create cluster"
   ipv6Enable: false
   hostNetwork:
-    vpcID: "d5842876-29a6-4751-87bd-7c4af4cf2f47"
-    subnetID: "c3a34386-5212-4484-be9c-1220807c4cfa"
+    vpcID: # "d5842876-29a6-4751-87bd-7c4af4cf2f47"
+    subnetID: # "c3a34386-5212-4484-be9c-1220807c4cfa"
   containerNetwork:
     mode: "overlay_l2"
     cidr: "172.16.123.0/24"
@@ -37,32 +37,41 @@ spec:
   tags:
     tag-key: "tag-value2"
   kubeProxyMode:
-  nodeConfigs:
-    - name: "" # name is created by cce-operator
+  nodePools:
+    - name: "nodepool-1"
+      type: "vm"
       nodeID: ""
-      flavor: "t6.large.2" # cheapest flavor for testing purpose
-      availableZone: "cn-north-1a"
-      sshKey: "Starry-huawei-beijing1"
-      rootVolume:
-        size: 40
-        type: "SSD"
-      dataVolumes:
-        - size: 100
+      initialNodeCount: 1
+      autoscaling:
+        enable: true
+        minNodeCount: 1
+        maxNodeCount: 5
+        scaleDownCooldownTime: 0
+        priority: 0
+      customSecurityGroups: []
+      nodeTemplate:
+        flavor: "t6.large.2" # cheapest flavor for testing purpose
+        availableZone: "random" # "cn-north-1a"
+        operatingSystem: "EulerOS 2.9"
+        sshKey: "Starry-huawei-beijing1"
+        rootVolume:
+          size: 40
           type: "SSD"
-      billingMode: 0
-      count: 1
-      operatingSystem: "EulerOS 2.9"
-      publicIP:
-        count: 0
-        eip:
-          ipType: "5_bgp"
-          bandwidth:
-            chargeMode: "traffic"
-            size: 1
-            shareType: "PER"
-      extendParam:
-        periodType:
-        periodNum:
-        isAutoRenew:
-      labels:
-        node-label-key: "node-label-value"
+        dataVolumes:
+          - size: 100
+            type: "SSD"
+        publicIP:
+          count: 1
+          eip:
+            ipType: "5_bgp"
+            bandwidth:
+              chargeMode: "traffic"
+              size: 1
+              shareType: "PER"
+        count: 1
+        billingMode: 0
+        runtime: "containerd"
+        extendParam:
+          periodType: "month"
+          periodNum: 1
+          isAutoRenew: "false"

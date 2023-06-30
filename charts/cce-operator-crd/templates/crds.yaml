@@ -105,98 +105,131 @@ spec:
               name:
                 nullable: true
                 type: string
-              nodeConfigs:
+              nodePools:
                 items:
                   properties:
-                    availableZone:
-                      nullable: true
-                      type: string
-                    billingMode:
-                      type: integer
-                    count:
-                      type: integer
-                    dataVolumes:
-                      items:
-                        properties:
-                          size:
-                            type: integer
-                          type:
-                            nullable: true
-                            type: string
-                        type: object
-                      nullable: true
-                      type: array
-                    extendParam:
+                    autoscaling:
                       properties:
-                        isAutoRenew:
-                          nullable: true
-                          type: string
-                        periodNum:
+                        enable:
+                          type: boolean
+                        maxNodeCount:
                           type: integer
-                        periodType:
-                          nullable: true
-                          type: string
+                        minNodeCount:
+                          type: integer
+                        priority:
+                          type: integer
+                        scaleDownCooldownTime:
+                          type: integer
                       type: object
-                    flavor:
-                      nullable: true
-                      type: string
-                    labels:
-                      additionalProperties:
+                    customSecurityGroups:
+                      items:
                         nullable: true
                         type: string
                       nullable: true
-                      type: object
+                      type: array
+                    initialNodeCount:
+                      type: integer
                     name:
                       nullable: true
                       type: string
                     nodeID:
                       nullable: true
                       type: string
-                    operatingSystem:
-                      nullable: true
-                      type: string
-                    publicIP:
+                    nodeTemplate:
                       properties:
+                        availableZone:
+                          nullable: true
+                          type: string
+                        billingMode:
+                          type: integer
                         count:
                           type: integer
-                        eip:
+                        dataVolumes:
+                          items:
+                            properties:
+                              size:
+                                type: integer
+                              type:
+                                nullable: true
+                                type: string
+                            type: object
+                          nullable: true
+                          type: array
+                        extendParam:
                           properties:
-                            bandwidth:
-                              properties:
-                                chargeMode:
-                                  nullable: true
-                                  type: string
-                                shareType:
-                                  nullable: true
-                                  type: string
-                                size:
-                                  type: integer
-                              type: object
-                            ipType:
+                            isAutoRenew:
+                              nullable: true
+                              type: string
+                            periodNum:
+                              type: integer
+                            periodType:
                               nullable: true
                               type: string
                           type: object
-                        ids:
-                          items:
-                            nullable: true
-                            type: string
+                        flavor:
                           nullable: true
-                          type: array
-                      type: object
-                    rootVolume:
-                      properties:
-                        size:
-                          type: integer
-                        type:
+                          type: string
+                        operatingSystem:
+                          nullable: true
+                          type: string
+                        publicIP:
+                          properties:
+                            count:
+                              type: integer
+                            eip:
+                              properties:
+                                bandwidth:
+                                  properties:
+                                    chargeMode:
+                                      nullable: true
+                                      type: string
+                                    shareType:
+                                      nullable: true
+                                      type: string
+                                    size:
+                                      type: integer
+                                  type: object
+                                ipType:
+                                  nullable: true
+                                  type: string
+                              type: object
+                            ids:
+                              items:
+                                nullable: true
+                                type: string
+                              nullable: true
+                              type: array
+                          type: object
+                        rootVolume:
+                          properties:
+                            size:
+                              type: integer
+                            type:
+                              nullable: true
+                              type: string
+                          type: object
+                        runtime:
+                          nullable: true
+                          type: string
+                        sshKey:
                           nullable: true
                           type: string
                       type: object
-                    sshKey:
+                    podSecurityGroups:
+                      items:
+                        nullable: true
+                        type: string
+                      nullable: true
+                      type: array
+                    type:
                       nullable: true
                       type: string
                   type: object
                 nullable: true
                 type: array
+              regionID:
+                nullable: true
+                type: string
               tags:
                 additionalProperties:
                   nullable: true
@@ -212,9 +245,6 @@ spec:
             type: object
           status:
             properties:
-              clusterEIPID:
-                nullable: true
-                type: string
               clusterID:
                 nullable: true
                 type: string
@@ -227,9 +257,6 @@ spec:
                     nullable: true
                     type: string
                 type: object
-              elbID:
-                nullable: true
-                type: string
               failureMessage:
                 nullable: true
                 type: string
@@ -245,105 +272,129 @@ spec:
                     nullable: true
                     type: string
                 type: object
-              nodeConfigs:
+              nodePools:
                 items:
                   properties:
-                    availableZone:
-                      nullable: true
-                      type: string
-                    billingMode:
-                      type: integer
-                    count:
-                      type: integer
-                    dataVolumes:
-                      items:
-                        properties:
-                          size:
-                            type: integer
-                          type:
-                            nullable: true
-                            type: string
-                        type: object
-                      nullable: true
-                      type: array
-                    extendParam:
+                    autoscaling:
                       properties:
-                        isAutoRenew:
-                          nullable: true
-                          type: string
-                        periodNum:
+                        enable:
+                          type: boolean
+                        maxNodeCount:
                           type: integer
-                        periodType:
-                          nullable: true
-                          type: string
+                        minNodeCount:
+                          type: integer
+                        priority:
+                          type: integer
+                        scaleDownCooldownTime:
+                          type: integer
                       type: object
-                    flavor:
-                      nullable: true
-                      type: string
-                    labels:
-                      additionalProperties:
+                    customSecurityGroups:
+                      items:
                         nullable: true
                         type: string
                       nullable: true
-                      type: object
+                      type: array
+                    initialNodeCount:
+                      type: integer
                     name:
                       nullable: true
                       type: string
                     nodeID:
                       nullable: true
                       type: string
-                    operatingSystem:
-                      nullable: true
-                      type: string
-                    publicIP:
+                    nodeTemplate:
                       properties:
+                        availableZone:
+                          nullable: true
+                          type: string
+                        billingMode:
+                          type: integer
                         count:
                           type: integer
-                        eip:
+                        dataVolumes:
+                          items:
+                            properties:
+                              size:
+                                type: integer
+                              type:
+                                nullable: true
+                                type: string
+                            type: object
+                          nullable: true
+                          type: array
+                        extendParam:
                           properties:
-                            bandwidth:
-                              properties:
-                                chargeMode:
-                                  nullable: true
-                                  type: string
-                                shareType:
-                                  nullable: true
-                                  type: string
-                                size:
-                                  type: integer
-                              type: object
-                            ipType:
+                            isAutoRenew:
+                              nullable: true
+                              type: string
+                            periodNum:
+                              type: integer
+                            periodType:
                               nullable: true
                               type: string
                           type: object
-                        ids:
-                          items:
-                            nullable: true
-                            type: string
+                        flavor:
                           nullable: true
-                          type: array
-                      type: object
-                    rootVolume:
-                      properties:
-                        size:
-                          type: integer
-                        type:
+                          type: string
+                        operatingSystem:
+                          nullable: true
+                          type: string
+                        publicIP:
+                          properties:
+                            count:
+                              type: integer
+                            eip:
+                              properties:
+                                bandwidth:
+                                  properties:
+                                    chargeMode:
+                                      nullable: true
+                                      type: string
+                                    shareType:
+                                      nullable: true
+                                      type: string
+                                    size:
+                                      type: integer
+                                  type: object
+                                ipType:
+                                  nullable: true
+                                  type: string
+                              type: object
+                            ids:
+                              items:
+                                nullable: true
+                                type: string
+                              nullable: true
+                              type: array
+                          type: object
+                        rootVolume:
+                          properties:
+                            size:
+                              type: integer
+                            type:
+                              nullable: true
+                              type: string
+                          type: object
+                        runtime:
+                          nullable: true
+                          type: string
+                        sshKey:
                           nullable: true
                           type: string
                       type: object
-                    sshKey:
+                    podSecurityGroups:
+                      items:
+                        nullable: true
+                        type: string
+                      nullable: true
+                      type: array
+                    type:
                       nullable: true
                       type: string
                   type: object
                 nullable: true
                 type: array
               phase:
-                nullable: true
-                type: string
-              poolID:
-                nullable: true
-                type: string
-              vipSubnetID:
                 nullable: true
                 type: string
             type: object

@@ -63,6 +63,15 @@ func GetClusterRequestFromCCECCSpec(config *ccev1.CCEClusterConfig) *model.Creat
 	default:
 		clusterSpecCategory = model.GetClusterSpecCategoryEnum().CCE
 	}
+	var kubeProxyMode model.ClusterSpecKubeProxyMode
+	switch spec.KubeProxyMode {
+	case "iptables":
+		kubeProxyMode = model.GetClusterSpecKubeProxyModeEnum().IPTABLES
+	case "ipvs":
+		kubeProxyMode = model.GetClusterSpecKubeProxyModeEnum().IPVS
+	default:
+		kubeProxyMode = model.GetClusterSpecKubeProxyModeEnum().IPTABLES
+	}
 
 	var clusterTags []model.ResourceTag
 	for k, v := range spec.Tags {
@@ -100,11 +109,16 @@ func GetClusterRequestFromCCECCSpec(config *ccev1.CCEClusterConfig) *model.Creat
 			BillingMode:          &spec.BillingMode,
 			KubernetesSvcIpRange: &spec.KubernetesSvcIPRange,
 			ClusterTags:          &clusterTags,
+			KubeProxyMode:        &kubeProxyMode,
 		},
 	}
 	if spec.Authentication.Mode == "authenticating_proxy" {
 		clusterReq.Spec.Authentication.AuthenticatingProxy.Ca =
 			&spec.Authentication.AuthenticatingProxy.Ca
+		clusterReq.Spec.Authentication.AuthenticatingProxy.Cert =
+			&spec.Authentication.AuthenticatingProxy.Cert
+		clusterReq.Spec.Authentication.AuthenticatingProxy.PrivateKey =
+			&spec.Authentication.AuthenticatingProxy.PrivateKey
 	}
 	request := &model.CreateClusterRequest{
 		Body: clusterReq,

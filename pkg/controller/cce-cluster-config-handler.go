@@ -73,10 +73,17 @@ func (h *Handler) OnCCEConfigChanged(_ string, config *ccev1.CCEClusterConfig) (
 		return nil, nil
 	}
 
-	h.log = logrus.WithFields(logrus.Fields{
-		"cluster": config.Name,
-		"phase":   config.Status.Phase,
-	})
+	if config.Status.Phase == "" {
+		h.log = logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "unknow",
+		})
+	} else {
+		h.log = logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		})
+	}
 
 	if err := h.newDriver(h.secretsCache, config.Spec); err != nil {
 		return config, fmt.Errorf("error creating new CCE services: %w", err)
@@ -183,7 +190,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		return config, err
 	}
 	if nodes.Items == nil {
-		return config, fmt.Errorf("failed to get cluster nodes: Items is nil")
+		return config, fmt.Errorf("checkAndUpdate: failed to get cluster nodes: Items is nil")
 	}
 	for _, node := range *nodes.Items {
 		if node.Metadata == nil || node.Status == nil || node.Status.Phase == nil {
@@ -215,7 +222,15 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		h.log.Infof("cluster [%s] does not have nodes", config.Spec.Name)
 	}
 
-	upstreamSpec, err := BuildUpstreamClusterState(h.driver.CCE, cluster, nodes)
+	// Get the created node pools and build upstream cluster state.
+	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Status.ClusterID, false)
+	if err != nil {
+		return config, err
+	}
+	if nodePools.Items == nil {
+		return config, fmt.Errorf("checkAndUpdate: failed to get cluster nodePools: Items is nil")
+	}
+	upstreamSpec, err := BuildUpstreamClusterState(h.driver.CCE, cluster, nodePools)
 	if err != nil {
 		return config, err
 	}
@@ -320,35 +335,36 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 		if config.Spec.KubernetesSvcIPRange == "" {
 			return fmt.Errorf(cannotBeEmptyError, "kubernetesSvcIPRange", config.Name)
 		}
-		if len(config.Spec.NodeConfigs) == 0 {
-			return fmt.Errorf(cannotBeEmptyError, "nodeConfigs", config.Name)
+		if len(config.Spec.NodePools) == 0 {
+			return fmt.Errorf(cannotBeEmptyError, "nodePools", config.Name)
 		}
-		for _, node := range config.Spec.NodeConfigs {
-			if node.Flavor == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodeConfig.flavor", config.Name)
+		for _, node := range config.Spec.NodePools {
+			nt := node.NodeTemplate
+			if nt.Flavor == "" {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.flavor", config.Name)
 			}
-			if node.AvailableZone == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodeConfig.availableZone", config.Name)
+			if nt.AvailableZone == "" {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.availableZone", config.Name)
 			}
-			if node.SSHKey == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodeConfig.sshKey", config.Name)
+			if nt.SSHKey == "" {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.sshKey", config.Name)
 			}
-			if node.RootVolume.Size == 0 || node.RootVolume.Type == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodeConfig.rootVolume", config.Name)
+			if nt.RootVolume.Size == 0 || nt.RootVolume.Type == "" {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.rootVolume", config.Name)
 			}
-			if len(node.DataVolumes) == 0 {
-				return fmt.Errorf(cannotBeEmptyError, "nodeConfig.dataVolumes", config.Name)
+			if len(nt.DataVolumes) == 0 {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.dataVolumes", config.Name)
 			}
-			for _, dv := range node.DataVolumes {
+			for _, dv := range nt.DataVolumes {
 				if dv.Size == 0 || dv.Type == "" {
-					return fmt.Errorf(cannotBeEmptyError, "nodeConfig.dataVolumes", config.Name)
+					return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.dataVolumes", config.Name)
 				}
 			}
-			if node.OperatingSystem == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodeConfig.operatingSystem", config.Name)
+			if nt.OperatingSystem == "" {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.operatingSystem", config.Name)
 			}
-			if node.Count == 0 {
-				return fmt.Errorf(cannotBeEmptyError, "nodeConfig.Count", config.Name)
+			if nt.Count == 0 {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.Count", config.Name)
 			}
 		}
 	}
@@ -504,64 +520,6 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			config.Status.HostNetwork.VpcID, config.Status.HostNetwork.SubnetID)
 	}
 
-	// TODO:
-	// if config.Spec.ExternalServiceEnabled {
-	// 	if config.Status.ClusterEIPID != "" {
-	// 		// Ensure provided public EIP exists.
-	// 		if _, err = network.GetPublicIP(h.clients.eip, config.Status.ClusterEIPID); err != nil {
-	// 			return config, err
-	// 		}
-	// 	}
-	// 	if config.Status.ELBID == "" {
-	// 		elbInfo, err := elb.CreateELB(
-	// 			h.clients.elb,
-	// 			common.GenResourceName("elb"),
-	// 			"Rancher managed ELB for "+config.Spec.Name,
-	// 			config.Status.HostNetwork.SubnetID,
-	// 		)
-	// 		if err != nil {
-	// 			return config, err
-	// 		}
-	// 		// Update ELB status
-	// 		config = config.DeepCopy()
-	// 		config.Status.ELBID = elbInfo.Loadbalancer.Id
-	// 		if config, err = h.cceCC.UpdateStatus(config); err != nil {
-	// 			return config, err
-	// 		}
-	// 		h.log.Infof("created ELB [%s]", config.Status.ELBID)
-	// 	} else {
-	// 		// ensure ELB exists
-	// 		_, err := elb.GetLoadBalancer(h.clients.elb, config.Status.ELBID)
-	// 		if err != nil {
-	// 			return config, err
-	// 		}
-	// 	}
-	// 	listeners, err := elb.ListListeners(h.clients.elb)
-	// 	if err != nil {
-	// 		return config, err
-	// 	}
-	// 	var listenerInfo *elb_model.ListenerResp
-	// 	for _, l := range *listeners.Listeners {
-	// 		for _, loadbalancer := range l.Loadbalancers {
-	// 			if loadbalancer.Id == config.Status.ELBID && l.ProtocolPort == 5443 {
-	// 				listenerInfo = &l
-	// 				break
-	// 			}
-	// 		}
-	// 	}
-	// 	if listenerInfo == nil {
-	// 		_, err := elb.CreateListener(
-	// 			h.clients.elb,
-	// 			config.Status.ELBID,
-	// 			config.Spec.Name+"-apiserver",
-	// 			"proxy cce cluster "+config.Spec.Name,
-	// 		)
-	// 		if err != nil {
-	// 			return config, err
-	// 		}
-	// 	}
-	// }
-
 	return h.cceCC.UpdateStatus(config)
 }
 
@@ -650,7 +608,7 @@ func (h *Handler) updateUpstreamClusterState(
 
 	var err error
 	config = config.DeepCopy()
-	config.Status.NodeConfigs = upstreamSpec.NodeConfigs
+	config.Status.NodePools = upstreamSpec.NodePools
 	config, err = h.cceCC.UpdateStatus(config)
 	if err != nil {
 		return config, err
@@ -660,72 +618,71 @@ func (h *Handler) updateUpstreamClusterState(
 		return config, nil
 	}
 
-	// Update node configs.
+	// Update node pools.
 	// Compare nodeConfigs between status & spec.
 	updateNode := false
-	for _, specNode := range config.Spec.NodeConfigs {
-		// This for loop creates node exists in spec but not exists in status
+	for _, specNP := range config.Spec.NodePools {
+		// This for loop creates node pool exists in spec but not exists in status
 		found := false
-		for _, statusNode := range config.Status.NodeConfigs {
-			if CompareNode(&specNode, &statusNode) {
+		for _, statusNP := range config.Status.NodePools {
+			if CompareNodePool(&specNP, &statusNP) {
+				h.log.Debugf("found nodepool [%s] exists in cce cluster [%s]",
+					specNP.Name, config.Spec.Name)
 				found = true
 				break
 			}
 		}
 		if !found {
-			// Create node
-			res, err := cce.CreateNode(
-				h.driver.CCE, config.Status.ClusterID, &specNode)
+			// Create node pool
+			res, err := cce.CreateNodePool(
+				h.driver.CCE, config.Status.ClusterID, &specNP)
 			if err != nil {
-				return config, err
+				return config, fmt.Errorf("updateUpstreamClusterState createNodePool: %w", err)
 			}
 			if res.Metadata == nil {
-				return config, fmt.Errorf("CreateNode returns invalid data")
+				return config, fmt.Errorf("updateUpstreamClusterState: CreateNodePool returns invalid data")
 			}
 			updateNode = true
-			h.log.Infof("request to create node [%s], ID [%s]",
-				utils.GetValue(res.Metadata.Name), utils.GetValue(res.Metadata.Uid))
+			h.log.Infof("request to create node pool [%s], ID [%s]",
+				res.Metadata.Name, utils.GetValue(res.Metadata.Uid))
 		}
 	}
-	for _, statusNode := range config.Status.NodeConfigs {
-		// This for loop deletes nodes exists in status but not exists in spec
+	for _, statusNP := range config.Status.NodePools {
+		// This for loop deletes node pools exists in status but not exists in spec
 		found := false
-		for _, specNode := range config.Spec.NodeConfigs {
-			if CompareNode(&statusNode, &specNode) {
+		for _, specNP := range config.Spec.NodePools {
+			if CompareNodePool(&statusNP, &specNP) {
 				found = true
 			}
 		}
 		if !found {
-			// Delete node
-			res, err := cce.DeleteNode(
-				h.driver.CCE, config.Status.ClusterID, statusNode.NodeID)
+			h.log.Debugf("nodepool [%s] exists in upstream spec but not exists in spec, should delete",
+				statusNP.Name)
+			// Delete node pool
+			res, err := cce.DeleteNodePool(
+				h.driver.CCE, config.Status.ClusterID, statusNP.ID)
 			if err != nil {
-				return config, err
+				return config, fmt.Errorf("updateUpstreamClusterState deleteNodePool: %w", err)
 			}
 			if res.Metadata == nil {
-				return config, fmt.Errorf("DeleteNode returns invalid data")
+				return config, fmt.Errorf("updateUpstreamClusterState: DeleteNodePool returns invalid data")
 			}
 			updateNode = true
-			h.log.Infof("request to delete node [%s], ID [%s]",
-				statusNode.Name, statusNode.NodeID)
+			h.log.Infof("request to delete node group [%s], ID [%s]",
+				statusNP.Name, statusNP.ID)
 		}
 	}
 	if updateNode {
-		return h.enqueueUpdate(config)
+		if config.Status.Phase != cceConfigUpdatingPhase {
+			config = config.DeepCopy()
+			config.Status.Phase = cceConfigUpdatingPhase
+			config, err = h.cceCC.UpdateStatus(config)
+			if err != nil {
+				return config, err
+			}
+		}
+		h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
 	}
-
-	// TODO:
-	// if config.Spec.ExternalServiceEnabled {
-	// 	addresses, err := createProxyDaemonSets(ctx, cceClient, cceClusterInfo)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if _, err := elb.AddBackends(listenerInfo.Id, elbClient, addresses, &state); err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	// clusterinfo.Endpoint = fmt.Sprintf("https://%s:5443", elbInfo.Loadbalancer.VIPAddress)
-	// }
 
 	if config.Status.Phase != cceConfigActivePhase {
 		h.log.Infof("cluster [%s] finished updating", config.Spec.Name)
