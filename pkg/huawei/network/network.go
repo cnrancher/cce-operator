@@ -192,3 +192,10 @@ func ListNameServers(client *dns.DnsClient, region string) (*dns_model.ListNameS
 		Region: &region,
 	})
 }
+
+func ListSecurityGroups(client *vpc.VpcClient, vpcID string) (*vpc_model.ListSecurityGroupsResponse, error) {
+	response, err := client.ListSecurityGroups(&vpc_model.ListSecurityGroupsRequest{
+		VpcId: &vpcID,
+	})
+	return response, err
+}
