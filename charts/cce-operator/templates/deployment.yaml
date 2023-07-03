@@ -29,7 +29,7 @@ spec:
         fsGroup: 1007
         runAsUser: 1007
       containers:
-      - name: eks-operator
+      - name: cce-operator
         image: {{ template "system_default_registry" . }}{{ .Values.cceOperator.image.repository }}:{{ .Values.cceOperator.image.tag }}
         imagePullPolicy: IfNotPresent
         env:
