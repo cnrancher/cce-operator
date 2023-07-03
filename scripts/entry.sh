@@ -1,9 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
 cd $(dirname $0)/../
-mkdir -p ./{bin,dist}
+mkdir -p ./bin
+mkdir -p ./dists/artifacts
 if [[ -e ./scripts/$1.sh ]]; then
     ./scripts/$1.sh
 else

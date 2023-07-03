@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -18,5 +18,5 @@ fi
 BUILD_FLAG="${BUILD_FLAG} -X 'github.com/cnrancher/cce-operator/pkg/utils.Version=${VERSION}'"
 
 mkdir -p bin && cd bin
-CGO_ENABLED=0 go build -ldflags "${BUILD_FLAG}" -o cce-operator${SUFFIX} ..
-ls -alh cce-operator${SUFFIX}
+CGO_ENABLED=0 go build -ldflags "${BUILD_FLAG}" -o cce-operator ..
+ls -alh cce-operator

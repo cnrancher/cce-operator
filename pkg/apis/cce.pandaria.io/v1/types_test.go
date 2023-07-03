@@ -3,7 +3,10 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
+
+	"github.com/rancher/wrangler/pkg/yaml"
 )
 
 func Test_CCEClusterConfig_Create(t *testing.T) {
@@ -113,4 +116,26 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 		return
 	}
 	fmt.Print(string(o))
+}
+
+func Test_CCEClusterConfig_Create2(t *testing.T) {
+	// convert create-example yaml spec to json
+	d, err := os.ReadFile("../../../../examples/create-example.yaml")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	var tmp any
+	err = yaml.Unmarshal(d, &tmp)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	config := tmp.(map[string]any)
+	data, err := json.MarshalIndent(config["spec"], "", "    ")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fmt.Printf("%v\n", string(data))
 }
