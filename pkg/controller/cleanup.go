@@ -139,7 +139,7 @@ func (h *Handler) deleteCCEClusterNodePools(
 
 	// Cluster nodes were deleted, update status.
 	config = config.DeepCopy()
-	config.Status.NodePools = []ccev1.NodePool{}
+	config.Status.NodePools = []ccev1.CCENodePool{}
 	config, err = h.cceCC.UpdateStatus(config)
 	return config, false, err
 }

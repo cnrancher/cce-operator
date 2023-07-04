@@ -26,24 +26,24 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 			Version:     "v1.23",
 			Description: "example description",
 			Ipv6Enable:  false,
-			HostNetwork: HostNetwork{
+			HostNetwork: CCEHostNetwork{
 				VpcID:         "VPCID-xxxxxx",
 				SubnetID:      "SUBNETID-xxxxxx",
 				SecurityGroup: "SECURITY-GROUP-ID-xxxxx",
 			},
-			ContainerNetwork: ContainerNetwork{
+			ContainerNetwork: CCEContainerNetwork{
 				Mode: "overlay_l2",
 				CIDR: "172.16.123.0/24",
 				// CIDRs: []string{
 				// 	"172.16.123.0/24",
 				// },
 			},
-			EniNetwork: EniNetwork{
+			EniNetwork: CCEEniNetwork{
 				Subnets: []string{},
 			},
-			Authentication: Authentication{
+			Authentication: CCEAuthentication{
 				Mode: "rbac",
-				AuthenticatingProxy: AuthenticatingProxy{
+				AuthenticatingProxy: CCEAuthenticatingProxy{
 					Ca: "",
 				},
 			},
@@ -53,12 +53,12 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 				"cluster-key": "cluster-value",
 			},
 			KubeProxyMode: "",
-			NodePools: []NodePool{
+			NodePools: []CCENodePool{
 				{
 					Name: "nodepool-1",
 					Type: "vm",
 					ID:   "NODE_ID-aaa-bbb-ccc",
-					NodeTemplate: NodeTemplate{
+					NodeTemplate: CCENodeTemplate{
 						Flavor:        "t6.large.2",
 						AvailableZone: "cn-north-1a",
 						SSHKey:        "SSH_KEY",

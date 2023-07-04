@@ -33,78 +33,78 @@ type CCEClusterConfig struct {
 
 // CCEClusterConfigSpec is the spec for a CCEClusterConfig resource
 type CCEClusterConfigSpec struct {
-	CredentialSecret     string            `json:"credentialSecret"`
-	Category             string            `json:"category,omitempty"` // 集群类别: CCE
-	RegionID             string            `json:"regionID,omitempty"`
-	ClusterID            string            `json:"clusterID,omitempty"` // ClusterID only used for import cluster
-	Imported             bool              `json:"imported,omitempty"`
-	Name                 string            `json:"name" norman:"noupdate"`
-	Labels               map[string]string `json:"labels,omitempty"`
-	Type                 string            `json:"type"`
-	Flavor               string            `json:"flavor" norman:"noupdate"`
-	Version              string            `json:"version" norman:"noupdate"`
-	Description          string            `json:"description,omitempty" norman:"noupdate"`
-	Ipv6Enable           bool              `json:"ipv6Enable,omitempty"`
-	HostNetwork          HostNetwork       `json:"hostNetwork"`
-	ContainerNetwork     ContainerNetwork  `json:"containerNetwork"`
-	EniNetwork           EniNetwork        `json:"eniNetwork,omitempty"`
-	Authentication       Authentication    `json:"authentication,omitempty"`
-	BillingMode          int32             `json:"clusterBillingMode,omitempty" norman:"noupdate"`
-	KubernetesSvcIPRange string            `json:"kubernetesSvcIPRange,omitempty" norman:"noupdate"`
-	Tags                 map[string]string `json:"tags"`
-	KubeProxyMode        string            `json:"kubeProxyMode,omitempty"`
-	NodePools            []NodePool        `json:"nodePools,omitempty"`
+	CredentialSecret     string              `json:"credentialSecret"`
+	Category             string              `json:"category,omitempty"` // 集群类别: CCE
+	RegionID             string              `json:"regionID,omitempty"`
+	ClusterID            string              `json:"clusterID,omitempty"` // ClusterID only used for import cluster
+	Imported             bool                `json:"imported,omitempty"`
+	Name                 string              `json:"name" norman:"noupdate"`
+	Labels               map[string]string   `json:"labels,omitempty"`
+	Type                 string              `json:"type"`
+	Flavor               string              `json:"flavor" norman:"noupdate"`
+	Version              string              `json:"version" norman:"noupdate"`
+	Description          string              `json:"description,omitempty" norman:"noupdate"`
+	Ipv6Enable           bool                `json:"ipv6Enable,omitempty"`
+	HostNetwork          CCEHostNetwork      `json:"hostNetwork"`
+	ContainerNetwork     CCEContainerNetwork `json:"containerNetwork"`
+	EniNetwork           CCEEniNetwork       `json:"eniNetwork,omitempty"`
+	Authentication       CCEAuthentication   `json:"authentication,omitempty"`
+	BillingMode          int32               `json:"clusterBillingMode,omitempty" norman:"noupdate"`
+	KubernetesSvcIPRange string              `json:"kubernetesSvcIPRange,omitempty" norman:"noupdate"`
+	Tags                 map[string]string   `json:"tags"`
+	KubeProxyMode        string              `json:"kubeProxyMode,omitempty"`
+	NodePools            []CCENodePool       `json:"nodePools,omitempty"`
 }
 
 type CCEClusterConfigStatus struct {
 	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
 
-	ClusterID        string           `json:"clusterID"`
-	HostNetwork      HostNetwork      `json:"hostNetwork"`
-	ContainerNetwork ContainerNetwork `json:"containerNetwork"`
-	NodePools        []NodePool       `json:"nodePools,omitempty"`
+	ClusterID        string              `json:"clusterID"`
+	HostNetwork      CCEHostNetwork      `json:"hostNetwork"`
+	ContainerNetwork CCEContainerNetwork `json:"containerNetwork"`
+	NodePools        []CCENodePool       `json:"nodePools,omitempty"`
 }
 
-type HostNetwork struct {
+type CCEHostNetwork struct {
 	VpcID         string `json:"vpcID,omitempty"`
 	SubnetID      string `json:"subnetID,omitempty"`
 	SecurityGroup string `json:"securityGroup,omitempty"`
 }
 
-type ContainerNetwork struct {
+type CCEContainerNetwork struct {
 	Mode string `json:"mode"`
 	CIDR string `json:"cidr"`
 	// CIDRs []string `json:"cidrs"` // 10.0.0.0/12~19, 172.16.0.0/16~19, 192.168.0.0/16~19
 }
 
-type EniNetwork struct {
+type CCEEniNetwork struct {
 	Subnets []string `json:"subnets"`
 }
 
-type Authentication struct {
-	Mode                string              `json:"mode"`
-	AuthenticatingProxy AuthenticatingProxy `json:"authenticatingProxy"`
+type CCEAuthentication struct {
+	Mode                string                 `json:"mode"`
+	AuthenticatingProxy CCEAuthenticatingProxy `json:"authenticatingProxy"`
 }
 
-type AuthenticatingProxy struct {
+type CCEAuthenticatingProxy struct {
 	Ca         string `json:"ca,omitempty"`
 	Cert       string `json:"cert,omitempty"`
 	PrivateKey string `json:"privateKey,omitempty"`
 }
 
-type NodePool struct {
+type CCENodePool struct {
 	Name                 string                  `json:"name,omitempty"`   // 节点池名称
 	Type                 string                  `json:"type"`             // 节点池类型：vm, ElasticBMS, pm (default: vm)
 	ID                   string                  `json:"nodeID,omitempty"` // 节点池 ID，仅用于查询
-	NodeTemplate         NodeTemplate            `json:"nodeTemplate"`
+	NodeTemplate         CCENodeTemplate         `json:"nodeTemplate"`
 	InitialNodeCount     int32                   `json:"initialNodeCount"` // 节点池初始化节点个数。查询时为节点池目标节点数量。
 	Autoscaling          NodePoolNodeAutoscaling `json:"autoscaling"`
 	PodSecurityGroups    []string                `json:"podSecurityGroups"`
 	CustomSecurityGroups []string                `json:"customSecurityGroups"` // 节点池自定义安全组相关配置，未指定安全组ID，新建节点将添加 Node 节点默认安全组。
 }
 
-type NodeTemplate struct {
+type CCENodeTemplate struct {
 	Flavor          string      `json:"flavor"`          // 节点池规格
 	AvailableZone   string      `json:"availableZone"`   // 可用区
 	OperatingSystem string      `json:"operatingSystem"` // 节点操作系统

@@ -59,11 +59,11 @@ func BuildUpstreamClusterState(
 
 func BuildUpstreamNodePoolConfigs(
 	client *huawei_cce.CceClient, nodePoolsRes *huawei_cce_model.ListNodePoolsResponse,
-) ([]ccev1.NodePool, error) {
+) ([]ccev1.CCENodePool, error) {
 	if nodePoolsRes == nil || nodePoolsRes.Items == nil {
 		return nil, fmt.Errorf("BuildUpstreamNodePoolConfigs: invalid nil parameter")
 	}
-	var nodePools []ccev1.NodePool = make([]ccev1.NodePool, 0, len(*nodePoolsRes.Items))
+	var nodePools []ccev1.CCENodePool = make([]ccev1.CCENodePool, 0, len(*nodePoolsRes.Items))
 	if len(*nodePoolsRes.Items) == 0 {
 		return nodePools, nil
 	}
@@ -73,11 +73,11 @@ func BuildUpstreamNodePoolConfigs(
 			n.Spec.NodeTemplate == nil || n.Spec.Autoscaling == nil {
 			continue
 		}
-		config := ccev1.NodePool{
+		config := ccev1.CCENodePool{
 			Name: n.Metadata.Name,
 			Type: n.Spec.Type.Value(),
 			ID:   utils.GetValue(n.Metadata.Uid),
-			NodeTemplate: ccev1.NodeTemplate{
+			NodeTemplate: ccev1.CCENodeTemplate{
 				Flavor:          n.Spec.NodeTemplate.Flavor,
 				AvailableZone:   n.Spec.NodeTemplate.Az,
 				OperatingSystem: utils.GetValue(n.Spec.NodeTemplate.Os),
@@ -137,9 +137,7 @@ func BuildUpstreamNodePoolConfigs(
 	return nodePools, nil
 }
 
-func CompareNodePool(a, b *ccev1.NodePool) bool {
-	// logrus.Debugf("compareNodePool: A: %v", utils.PrintObject(a))
-	// logrus.Debugf("compareNodePool: B: %v", utils.PrintObject(b))
+func CompareNodePool(a, b *ccev1.CCENodePool) bool {
 	if a.Name != b.Name || a.Type != b.Type {
 		return false
 	}

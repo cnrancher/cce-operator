@@ -8,15 +8,15 @@ import (
 )
 
 func Test_CompareNode(t *testing.T) {
-	a := ccev1.NodePool{}
-	b := ccev1.NodePool{}
+	a := ccev1.CCENodePool{}
+	b := ccev1.CCENodePool{}
 	assert := assert.New(t)
 	assert.True(CompareNodePool(&a, &b))
-	a = ccev1.NodePool{
+	a = ccev1.CCENodePool{
 		Name: "rancher-managed-node-abcde",
 		ID:   "abcde-12345",
 	}
-	a.NodeTemplate = ccev1.NodeTemplate{
+	a.NodeTemplate = ccev1.CCENodeTemplate{
 		Flavor:        "t6.large.2",
 		AvailableZone: "cn-north-1a",
 		SSHKey:        "test-ssh-key",

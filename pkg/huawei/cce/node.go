@@ -9,7 +9,7 @@ import (
 )
 
 func CreateNodePool(
-	client *cce.CceClient, clusterID string, nodePool *ccev1.NodePool,
+	client *cce.CceClient, clusterID string, nodePool *ccev1.CCENodePool,
 ) (*model.CreateNodePoolResponse, error) {
 	createNodePoolReq, err := getNodePoolRequirement(clusterID, nodePool)
 	if err != nil {
@@ -88,7 +88,7 @@ func DeleteNodePool(
 }
 
 func getNodePoolRequirement(
-	clusterID string, np *ccev1.NodePool,
+	clusterID string, np *ccev1.CCENodePool,
 ) (*model.CreateNodePoolRequest, error) {
 	nodePoolBody := &model.NodePool{
 		Kind:       "NodePool",
