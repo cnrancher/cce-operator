@@ -7,7 +7,7 @@ import (
 	"github.com/cnrancher/cce-operator/pkg/huawei/network"
 	huawei_cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	huawei_dns "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2"
-	huawei_eip "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v3"
+	huawei_eip "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v2"
 	huawei_elb "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/elb/v2"
 	huawei_vpc "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpc/v2"
 	huawei_vpcep "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpcep/v1"

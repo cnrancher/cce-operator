@@ -17,11 +17,11 @@ func BuildUpstreamClusterState(
 	if cluster == nil || nodePools == nil {
 		return nil, fmt.Errorf("BuildUpstreamClusterState: cluster or nodes is nil pointer")
 	}
-	if cluster.Metadata == nil || cluster.Spec == nil {
+	if cluster.Metadata == nil || cluster.Spec == nil || cluster.Spec.Type == nil {
 		return nil, fmt.Errorf(
 			"failed to get cluster from CCE API: Metadata or Spec is nil")
 	}
-	newSpec := &ccev1.CCEClusterConfigSpec{
+	spec := &ccev1.CCEClusterConfigSpec{
 		CredentialSecret:     "",
 		RegionID:             utils.GetValue(cluster.Spec.Az),
 		Imported:             false,
@@ -32,29 +32,44 @@ func BuildUpstreamClusterState(
 		Version:              utils.GetValue(cluster.Spec.Version),
 		BillingMode:          utils.GetValue(cluster.Spec.BillingMode),
 		KubernetesSvcIPRange: utils.GetValue(cluster.Spec.KubernetesSvcIpRange),
+		KubeProxyMode:        cluster.Spec.KubeProxyMode.Value(),
+		PublicAccess:         false,
 	}
 	if cluster.Spec.HostNetwork != nil {
-		newSpec.HostNetwork.VpcID = cluster.Spec.HostNetwork.Vpc
-		newSpec.HostNetwork.SubnetID = cluster.Spec.HostNetwork.Subnet
+		spec.HostNetwork.VpcID = cluster.Spec.HostNetwork.Vpc
+		spec.HostNetwork.SubnetID = cluster.Spec.HostNetwork.Subnet
 	}
 	if cluster.Spec.ContainerNetwork != nil {
-		newSpec.ContainerNetwork.Mode = cluster.Spec.ContainerNetwork.Mode.Value()
-		newSpec.ContainerNetwork.CIDR = utils.GetValue(cluster.Spec.ContainerNetwork.Cidr)
+		spec.ContainerNetwork.Mode = cluster.Spec.ContainerNetwork.Mode.Value()
+		spec.ContainerNetwork.CIDR = utils.GetValue(cluster.Spec.ContainerNetwork.Cidr)
 	}
 	if cluster.Spec.Authentication != nil {
-		newSpec.Authentication.Mode = utils.GetValue(cluster.Spec.Authentication.Mode)
+		spec.Authentication.Mode = utils.GetValue(cluster.Spec.Authentication.Mode)
 		if cluster.Spec.Authentication.AuthenticatingProxy != nil &&
 			cluster.Spec.Authentication.AuthenticatingProxy.Ca != nil {
-			newSpec.Authentication.AuthenticatingProxy.Ca = utils.GetValue(
+			spec.Authentication.AuthenticatingProxy.Ca = utils.GetValue(
 				cluster.Spec.Authentication.AuthenticatingProxy.Ca)
 		}
 	}
+	if cluster.Spec.ExtendParam != nil {
+		spec.ExtendParam = ccev1.CCEClusterExtendParam{
+			ClusterAZ:         utils.GetValue(cluster.Spec.ExtendParam.ClusterAZ),
+			ClusterExternalIP: utils.GetValue(cluster.Spec.ExtendParam.ClusterExternalIP),
+			PeriodType:        utils.GetValue(cluster.Spec.ExtendParam.PeriodType),
+			PeriodNum:         utils.GetValue(cluster.Spec.ExtendParam.PeriodNum),
+			IsAutoRenew:       utils.GetValue(cluster.Spec.ExtendParam.IsAutoRenew),
+			IsAutoPay:         utils.GetValue(cluster.Spec.ExtendParam.IsAutoPay),
+		}
+	}
+	if spec.ExtendParam.ClusterExternalIP != "" {
+		spec.PublicAccess = true
+	}
 	var err error
-	newSpec.NodePools, err = BuildUpstreamNodePoolConfigs(client, nodePools)
+	spec.NodePools, err = BuildUpstreamNodePoolConfigs(client, nodePools)
 	if err != nil {
 		return nil, err
 	}
-	return newSpec, nil
+	return spec, nil
 }
 
 func BuildUpstreamNodePoolConfigs(
@@ -85,7 +100,7 @@ func BuildUpstreamNodePoolConfigs(
 				BillingMode:     utils.GetValue(n.Spec.NodeTemplate.BillingMode),
 			},
 			InitialNodeCount: utils.GetValue(n.Spec.InitialNodeCount),
-			Autoscaling: ccev1.NodePoolNodeAutoscaling{
+			Autoscaling: ccev1.CCENodePoolNodeAutoscaling{
 				Enable:                utils.GetValue(n.Spec.Autoscaling.Enable),
 				MinNodeCount:          utils.GetValue(n.Spec.Autoscaling.MinNodeCount),
 				MaxNodeCount:          utils.GetValue(n.Spec.Autoscaling.MaxNodeCount),
@@ -97,7 +112,7 @@ func BuildUpstreamNodePoolConfigs(
 			config.NodeTemplate.SSHKey = *n.Spec.NodeTemplate.Login.SshKey
 		}
 		if n.Spec.NodeTemplate.RootVolume != nil {
-			config.NodeTemplate.RootVolume = ccev1.Volume{
+			config.NodeTemplate.RootVolume = ccev1.CCENodeVolume{
 				Size: n.Spec.NodeTemplate.RootVolume.Size,
 				Type: n.Spec.NodeTemplate.RootVolume.Volumetype,
 			}
@@ -105,7 +120,7 @@ func BuildUpstreamNodePoolConfigs(
 		if len(n.Spec.NodeTemplate.DataVolumes) > 0 {
 			for _, v := range n.Spec.NodeTemplate.DataVolumes {
 				config.NodeTemplate.DataVolumes = append(config.NodeTemplate.DataVolumes,
-					ccev1.Volume{
+					ccev1.CCENodeVolume{
 						Size: v.Size,
 						Type: v.Volumetype,
 					},
@@ -118,7 +133,7 @@ func BuildUpstreamNodePoolConfigs(
 			if n.Spec.NodeTemplate.PublicIP.Eip != nil {
 				config.NodeTemplate.PublicIP.Eip.Iptype = n.Spec.NodeTemplate.PublicIP.Eip.Iptype
 				if n.Spec.NodeTemplate.PublicIP.Eip.Bandwidth != nil {
-					config.NodeTemplate.PublicIP.Eip.Bandwidth = ccev1.Bandwidth{
+					config.NodeTemplate.PublicIP.Eip.Bandwidth = ccev1.CCEEipBandwidth{
 						ChargeMode: utils.GetValue(n.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Chargemode),
 						Size:       utils.GetValue(n.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Size),
 						ShareType:  utils.GetValue(n.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Sharetype),
@@ -181,7 +196,7 @@ func CompareNodePool(a, b *ccev1.CCENodePool) bool {
 	return true
 }
 
-func CompareVolume(a, b *ccev1.Volume) bool {
+func CompareVolume(a, b *ccev1.CCENodeVolume) bool {
 	if a.Size != b.Size || a.Type != b.Type {
 		return false
 	}

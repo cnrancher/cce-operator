@@ -22,12 +22,6 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 		h.log.Infof("cluster [%s] is imported, will not delete CCE cluster", config.Name)
 		return config, nil
 	}
-	if config.Status.Phase == cceConfigNotCreatedPhase {
-		// The most likely context here is that the cluster already existed in CCE, so we shouldn't delete it
-		h.log.Warnf("cluster [%s] never advanced to creating status, will not delete CCE cluster",
-			config.Spec.Name)
-		return config, nil
-	}
 	if err := h.newDriver(h.secretsCache, config.Spec); err != nil {
 		return config, fmt.Errorf("error creating new CCE services: %w", err)
 	}
@@ -191,6 +185,30 @@ func (h *Handler) deleteCCECluster(
 func (h *Handler) deleteNetworkResources(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
+	if config.Status.ClusterExternalIPID != "" {
+		eipID := config.Status.ClusterExternalIPID
+		_, err := network.GetPublicIP(h.driver.EIP, eipID)
+		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
+			config = config.DeepCopy()
+			config.Status.ClusterExternalIPID = ""
+			config.Status.ClusterExternalIP = ""
+			config, err = h.cceCC.UpdateStatus(config)
+			if err != nil {
+				return config, false, err
+			}
+			h.log.Infof("EIP [%s] deleted", eipID)
+		} else if err != nil {
+			return config, false, err
+		} else {
+			_, err = network.DeletePublicIP(h.driver.EIP, eipID)
+			if err != nil {
+				return config, false, err
+			}
+			h.log.Infof("request to delete EIP [%v]", eipID)
+			return config, true, nil
+		}
+	}
+
 	var subnetID, vpcID string
 	if config.Spec.HostNetwork.VpcID == "" {
 		subnetID = config.Status.HostNetwork.SubnetID
@@ -198,7 +216,7 @@ func (h *Handler) deleteNetworkResources(
 	} else if config.Spec.HostNetwork.SubnetID == "" {
 		subnetID = config.Status.HostNetwork.SubnetID
 	} else {
-		// HostNetwork provided, skip network deletion.
+		// HostNetwork provided, skip vpc & subnet deletion.
 		return config, false, nil
 	}
 

@@ -29,9 +29,9 @@ func NewClientAuth(ak, sk, region, projectID string) *ClientAuth {
 	}
 }
 
-func GetClusterRequestFromCCECCSpec(config *ccev1.CCEClusterConfig) *model.CreateClusterRequest {
-	spec := config.Spec
-	status := config.Status
+func GetClusterRequestFromCCECCConfig(config *ccev1.CCEClusterConfig) *model.CreateClusterRequest {
+	spec := &config.Spec
+	status := &config.Status
 	var containerNetWorkMode model.ContainerNetworkMode
 	switch status.ContainerNetwork.Mode {
 	case "overlay_l2":
@@ -110,6 +110,10 @@ func GetClusterRequestFromCCECCSpec(config *ccev1.CCEClusterConfig) *model.Creat
 			KubernetesSvcIpRange: &spec.KubernetesSvcIPRange,
 			ClusterTags:          &clusterTags,
 			KubeProxyMode:        &kubeProxyMode,
+			ExtendParam: &model.ClusterExtendParam{
+				ClusterAZ:         &spec.ExtendParam.ClusterAZ,
+				ClusterExternalIP: &status.ClusterExternalIP,
+			},
 		},
 	}
 	if spec.Authentication.Mode == "authenticating_proxy" {
@@ -119,6 +123,12 @@ func GetClusterRequestFromCCECCSpec(config *ccev1.CCEClusterConfig) *model.Creat
 			&spec.Authentication.AuthenticatingProxy.Cert
 		clusterReq.Spec.Authentication.AuthenticatingProxy.PrivateKey =
 			&spec.Authentication.AuthenticatingProxy.PrivateKey
+	}
+	if spec.BillingMode != 0 {
+		clusterReq.Spec.ExtendParam.PeriodType = &spec.ExtendParam.PeriodType
+		clusterReq.Spec.ExtendParam.PeriodNum = &spec.ExtendParam.PeriodNum
+		clusterReq.Spec.ExtendParam.IsAutoRenew = &spec.ExtendParam.IsAutoRenew
+		clusterReq.Spec.ExtendParam.IsAutoPay = &spec.ExtendParam.IsAutoPay
 	}
 	request := &model.CreateClusterRequest{
 		Body: clusterReq,

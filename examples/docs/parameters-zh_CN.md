@@ -1,4 +1,3 @@
-
 # CCE Operator Parameter
 
 ````json
@@ -46,6 +45,27 @@
         "cluster-key": "cluster-value" // 集群资源标签
     },
     "kubeProxyMode": "iptables", // 服务转发模式, iptables 或 ipvs (默认 iptables)
+    "publicAccess": true, // 是否公开访问，若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
+                           // 若为 false，则创建集群时不配置公网 IP
+    "publicIP": {
+        "createEIP": true, // 若为 true，Operator 在创建集群之前会先创建 EIP，之后在创建集群时将 EIP 绑定至集群
+        "eip": { // Operator 创建 EIP 的参数
+            "ipType": "5_sbgp", // 弹性IP类型 5_telcom（电信），5_union（联通），5_bgp（全动态BGP），5_sbgp（静态BGP）
+            "bandwidth": {
+                "chargeMode": "", // 计费模式: bandwidth，traffic
+                "size": 1, // 带宽大小 1-300Mbit/s
+                "shareType": "PER", // 保留参数，Operator 目前只支持 PER，后续可考虑支持 WHOLE 共享宽带
+            }
+        }
+    },
+    "extendParam": { // 集群拓展参数
+        "clusterAZ": "cn-north-1a", // 保留参数，可为空字符串，集群 master 节点的地区
+        "clusterExternalIP": "114.113.112.111", // 当 publicAccess 为 true 时，创建集群时为绑定至已有的 EIP 地址（此字段填写 IP 地址，而不是 EIP ID）
+        "periodType": "", // month：月, year：年; billingMode 为 1（包周期）时生效，且为必选。
+        "periodNum": 0, // 订购周期数
+        "isAutoRenew": "false", // 字符串类型的 true/false, 是否自动续订
+        "isAutoPay": "false", // 字符串类型的 true/false, 是否自动扣款
+    },
     "nodePools": [
         // 集群节点池的参数配置，与华为云文档相对应：https://support.huaweicloud.com/api-cce/cce_02_0242.html#section4
         {

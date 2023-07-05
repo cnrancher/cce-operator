@@ -9,8 +9,8 @@ import (
 	cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/region"
-	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -39,7 +39,7 @@ func NewCCEClient(auth *common.ClientAuth) *cce.CceClient {
 func CreateCluster(
 	client *cce.CceClient, config *ccev1.CCEClusterConfig,
 ) (*model.CreateClusterResponse, error) {
-	clusterReq := common.GetClusterRequestFromCCECCSpec(config)
+	clusterReq := common.GetClusterRequestFromCCECCConfig(config)
 	return client.CreateCluster(clusterReq)
 }
 
@@ -59,8 +59,10 @@ func DeleteCluster(client *cce.CceClient, ID string) (*model.DeleteClusterRespon
 	})
 }
 
-func GetClusterClient(client *cce.CceClient, cluster *model.ShowClusterResponse) (kubernetes.Interface, error) {
-	clusterCert, err := GetClusterCert(client, cluster)
+func GetClusterRestConfig(
+	client *cce.CceClient, clusterID string, duration int32,
+) (*rest.Config, error) {
+	clusterCert, err := GetClusterCert(client, clusterID, duration)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +73,16 @@ func GetClusterClient(client *cce.CceClient, cluster *model.ShowClusterResponse)
 
 	config, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
-		logrus.Infof("Generate config Failed %+v", err)
+		return nil, err
+	}
+	return config, nil
+}
+
+func GetClusterClient(
+	client *cce.CceClient, clusterID string, duration int32,
+) (kubernetes.Interface, error) {
+	config, err := GetClusterRestConfig(client, clusterID, duration)
+	if err != nil {
 		return nil, err
 	}
 	clientSet, err := kubernetes.NewForConfig(config)
@@ -83,15 +94,18 @@ func GetClusterClient(client *cce.CceClient, cluster *model.ShowClusterResponse)
 }
 
 func GetClusterCert(
-	client *cce.CceClient, cluster *model.ShowClusterResponse,
+	client *cce.CceClient, clusterID string, duration int32,
 ) (*model.CreateKubernetesClusterCertResponse, error) {
-	if cluster == nil || client == nil {
-		return nil, fmt.Errorf("cluster or cce client is nil")
+	if duration > 365*30 || duration < -1 {
+		return nil, fmt.Errorf(
+			"invalid duration '%d'(days), should be <= 365*30", duration)
+	} else if duration == 0 {
+		duration = -1
 	}
 	request := &model.CreateKubernetesClusterCertRequest{
-		ClusterId: *cluster.Metadata.Uid,
+		ClusterId: clusterID,
 		Body: &model.CertDuration{
-			Duration: int32(365),
+			Duration: duration,
 		},
 	}
 	return client.CreateKubernetesClusterCert(request)

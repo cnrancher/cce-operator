@@ -20,11 +20,11 @@ func Test_CompareNode(t *testing.T) {
 		Flavor:        "t6.large.2",
 		AvailableZone: "cn-north-1a",
 		SSHKey:        "test-ssh-key",
-		RootVolume: ccev1.Volume{
+		RootVolume: ccev1.CCENodeVolume{
 			Size: 40,
 			Type: "SSD",
 		},
-		DataVolumes: []ccev1.Volume{
+		DataVolumes: []ccev1.CCENodeVolume{
 			{
 				Size: 100,
 				Type: "SSD",
@@ -32,10 +32,10 @@ func Test_CompareNode(t *testing.T) {
 		},
 		BillingMode:     0,
 		OperatingSystem: "EulerOS 2.9",
-		PublicIP: ccev1.PublicIP{
+		PublicIP: ccev1.CCENodePublicIP{
 			Count: 0,
 		},
-		ExtendParam: ccev1.ExtendParam{},
+		ExtendParam: ccev1.CCENodeExtendParam{},
 		Count:       1,
 	}
 	b = a
@@ -51,7 +51,7 @@ func Test_CompareNode(t *testing.T) {
 	b.NodeTemplate.SSHKey = ""
 	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.NodeTemplate.RootVolume = ccev1.Volume{
+	b.NodeTemplate.RootVolume = ccev1.CCENodeVolume{
 		Size: 50,
 		Type: "SSD",
 	}
@@ -60,7 +60,7 @@ func Test_CompareNode(t *testing.T) {
 	b.NodeTemplate.DataVolumes = nil
 	assert.False(CompareNodePool(&a, &b))
 	b = a
-	b.NodeTemplate.DataVolumes = []ccev1.Volume{
+	b.NodeTemplate.DataVolumes = []ccev1.CCENodeVolume{
 		{
 			Size: 110,
 			Type: "SSD",

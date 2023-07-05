@@ -29,7 +29,7 @@ var (
 func init() {
 	logrus.SetFormatter(&nested.Formatter{
 		HideKeys:        true,
-		TimestampFormat: "[15:04:05]",
+		TimestampFormat: "[01-02T15:04:05]",
 		FieldsOrder:     []string{"cluster", "phase"},
 	})
 

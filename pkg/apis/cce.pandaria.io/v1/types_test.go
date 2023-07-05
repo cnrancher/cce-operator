@@ -52,7 +52,27 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 			Tags: map[string]string{
 				"cluster-key": "cluster-value",
 			},
-			KubeProxyMode: "",
+			KubeProxyMode: "iptables",
+			PublicAccess:  true,
+			PublicIP: CCEClusterPublicIP{
+				CreateEIP: true,
+				Eip: CCEEip{
+					Iptype: "5_bgp",
+					Bandwidth: CCEEipBandwidth{
+						ChargeMode: "traffic",
+						Size:       1,
+						ShareType:  "PER",
+					},
+				},
+			},
+			ExtendParam: CCEClusterExtendParam{
+				ClusterAZ:         "cn-north-1a",
+				ClusterExternalIP: "EIP-ADDR",
+				PeriodType:        "month",
+				PeriodNum:         0,
+				IsAutoRenew:       "false",
+				IsAutoPay:         "false",
+			},
 			NodePools: []CCENodePool{
 				{
 					Name: "nodepool-1",
@@ -62,11 +82,11 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 						Flavor:        "t6.large.2",
 						AvailableZone: "cn-north-1a",
 						SSHKey:        "SSH_KEY",
-						RootVolume: Volume{
+						RootVolume: CCENodeVolume{
 							Size: 40,
 							Type: "SSD",
 						},
-						DataVolumes: []Volume{
+						DataVolumes: []CCENodeVolume{
 							{
 								Size: 100,
 								Type: "SSD",
@@ -74,11 +94,11 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 						},
 						BillingMode:     0,
 						OperatingSystem: "EulerOS 2.9",
-						PublicIP: PublicIP{
+						PublicIP: CCENodePublicIP{
 							Count: 1,
-							Eip: Eip{
+							Eip: CCEEip{
 								Iptype: "5_bgp",
-								Bandwidth: Bandwidth{
+								Bandwidth: CCEEipBandwidth{
 									ChargeMode: "traffic",
 									Size:       1,
 									ShareType:  "PER",
@@ -86,7 +106,7 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 							},
 						},
 						Runtime: "containerd",
-						ExtendParam: ExtendParam{
+						ExtendParam: CCENodeExtendParam{
 							PeriodType:  "month",
 							PeriodNum:   1,
 							IsAutoRenew: "false",
@@ -94,7 +114,7 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 						Count: int32(1),
 					},
 					InitialNodeCount: 1,
-					Autoscaling: NodePoolNodeAutoscaling{
+					Autoscaling: CCENodePoolNodeAutoscaling{
 						Enable:                false,
 						MinNodeCount:          1,
 						MaxNodeCount:          1,

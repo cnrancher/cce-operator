@@ -66,3 +66,15 @@ func Test_GetClusterNodePools(t *testing.T) {
 	o := utils.PrintObject(nodePools)
 	fmt.Printf("%v\n", o)
 }
+
+func Test_GetClusterCert(t *testing.T) {
+	if client == nil {
+		return
+	}
+	certs, err := cce.GetClusterCert(client, "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fmt.Printf("%s\n", utils.PrintObject(certs))
+}

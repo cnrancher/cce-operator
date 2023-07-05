@@ -71,6 +71,26 @@ spec:
                     nullable: true
                     type: array
                 type: object
+              extendParam:
+                properties:
+                  clusterAZ:
+                    nullable: true
+                    type: string
+                  clusterExternalIP:
+                    nullable: true
+                    type: string
+                  isAutoPay:
+                    nullable: true
+                    type: string
+                  isAutoRenew:
+                    nullable: true
+                    type: string
+                  periodNum:
+                    type: integer
+                  periodType:
+                    nullable: true
+                    type: string
+                type: object
               flavor:
                 nullable: true
                 type: string
@@ -227,6 +247,30 @@ spec:
                   type: object
                 nullable: true
                 type: array
+              publicAccess:
+                type: boolean
+              publicIP:
+                properties:
+                  createEIP:
+                    type: boolean
+                  eip:
+                    properties:
+                      bandwidth:
+                        properties:
+                          chargeMode:
+                            nullable: true
+                            type: string
+                          shareType:
+                            nullable: true
+                            type: string
+                          size:
+                            type: integer
+                        type: object
+                      ipType:
+                        nullable: true
+                        type: string
+                    type: object
+                type: object
               regionID:
                 nullable: true
                 type: string
@@ -245,6 +289,12 @@ spec:
             type: object
           status:
             properties:
+              clusterExternalIP:
+                nullable: true
+                type: string
+              clusterExternalIPID:
+                nullable: true
+                type: string
               clusterID:
                 nullable: true
                 type: string

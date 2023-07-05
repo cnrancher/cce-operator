@@ -1,7 +1,7 @@
 apiVersion: cce.pandaria.io/v1
 kind: CCEClusterConfig
 metadata:
-  name: "c-m-create"
+  name: "c-create"
 spec:
   credentialSecret: "cattle-global-data:cc-test-cce"
   category: "CCE"
@@ -17,8 +17,8 @@ spec:
   description: "example create cluster"
   ipv6Enable: false
   hostNetwork:
-    vpcID: # "d5842876-29a6-4751-87bd-7c4af4cf2f47"
-    subnetID: # "c3a34386-5212-4484-be9c-1220807c4cfa"
+    vpcID: "d5842876-29a6-4751-87bd-7c4af4cf2f47"
+    subnetID: "c3a34386-5212-4484-be9c-1220807c4cfa"
   containerNetwork:
     mode: "overlay_l2"
     cidr: "172.16.123.0/24"
@@ -36,7 +36,19 @@ spec:
   kubernetesSvcIPRange: "10.3.4.0/24"
   tags:
     tag-key: "tag-value2"
-  kubeProxyMode:
+  kubeProxyMode: "iptables"
+  publicAccess: true
+  publicIP:
+    createEIP: true
+    eip:
+      ipType: 5_sbgp
+      bandwidth:
+        chargeMode: traffic
+        size: 1
+        shareType: PER
+  extendParam:
+    clusterAZ: "cn-north-1a"
+    clusterExternalIP: ""
   nodePools:
     - name: "nodepool-1"
       type: "vm"
@@ -53,7 +65,7 @@ spec:
         flavor: "t6.large.2" # cheapest flavor for testing purpose
         availableZone: "random" # "cn-north-1a"
         operatingSystem: "EulerOS 2.9"
-        sshKey: "Starry-huawei-beijing1"
+        sshKey: "starry-keypair"
         rootVolume:
           size: 40
           type: "SSD"
@@ -63,7 +75,7 @@ spec:
         publicIP:
           count: 1
           eip:
-            ipType: "5_bgp"
+            ipType: "5_sbgp"
             bandwidth:
               chargeMode: "traffic"
               size: 1

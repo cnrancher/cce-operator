@@ -1,17 +1,15 @@
 package network
 
 import (
+	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	"github.com/cnrancher/cce-operator/pkg/huawei/common"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	dns "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2"
 	dns_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2/model"
 	dns_region "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2/region"
-	eipv2 "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v2"
-	eipv2_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v2/model"
-	eipv2_region "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v2/region"
-	eip "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v3"
-	eip_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v3/model"
-	eip_region "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v3/region"
+	eip "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v2"
+	eip_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v2/model"
+	eip_region "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v2/region"
 	vpc "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpc/v2"
 	vpc_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpc/v2/model"
 	vpc_region "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpc/v2/region"
@@ -44,14 +42,6 @@ func NewEipClient(c *common.ClientAuth) *eip.EipClient {
 			Build())
 }
 
-func NewEipV2Client(c *common.ClientAuth) *eipv2.EipClient {
-	return eipv2.NewEipClient(
-		eipv2.EipClientBuilder().
-			WithRegion(eipv2_region.ValueOf(c.Region)).
-			WithCredential(c.Credential).
-			Build())
-}
-
 func NewVpcepClient(c *common.ClientAuth) *vpcep.VpcepClient {
 	return vpcep.NewVpcepClient(
 		vpcep.VpcepClientBuilder().
@@ -68,18 +58,57 @@ func NewDnsClient(c *common.ClientAuth) *dns.DnsClient {
 			Build())
 }
 
+func CreatePublicIP(
+	client *eip.EipClient, param *ccev1.CCEClusterPublicIP,
+) (*eip_model.CreatePublicipResponse, error) {
+	body := &eip_model.CreatePublicipRequestBody{
+		Bandwidth: &eip_model.CreatePublicipBandwidthOption{
+			ChargeMode: nil, // bandwidth, traffic
+			Id:         nil,
+			ShareType:  eip_model.GetCreatePublicipBandwidthOptionShareTypeEnum().PER,
+			Size:       &param.Eip.Bandwidth.Size,
+			Name:       utils.GetPtr(common.GenResourceName("bandwidth")),
+		},
+		Publicip: &eip_model.CreatePublicipOption{
+			Type:  param.Eip.Iptype,
+			Alias: utils.GetPtr(common.GenResourceName("eip")),
+		},
+	}
+	var chargeMode eip_model.CreatePublicipBandwidthOptionChargeMode
+	switch param.Eip.Bandwidth.ChargeMode {
+	case "bandwidth":
+		chargeMode = eip_model.GetCreatePublicipBandwidthOptionChargeModeEnum().BANDWIDTH
+	case "traffic":
+		chargeMode = eip_model.GetCreatePublicipBandwidthOptionChargeModeEnum().TRAFFIC
+	default:
+		chargeMode = eip_model.GetCreatePublicipBandwidthOptionChargeModeEnum().BANDWIDTH
+	}
+	body.Bandwidth.ChargeMode = &chargeMode
+	var shareType eip_model.CreatePublicipBandwidthOptionShareType
+	switch param.Eip.Bandwidth.ShareType {
+	case "PER":
+		shareType = eip_model.GetCreatePublicipBandwidthOptionShareTypeEnum().PER
+	case "WHOLE":
+		shareType = eip_model.GetCreatePublicipBandwidthOptionShareTypeEnum().WHOLE
+	default:
+		shareType = eip_model.GetCreatePublicipBandwidthOptionShareTypeEnum().PER
+	}
+	body.Bandwidth.ShareType = shareType
+
+	return client.CreatePublicip(&eip_model.CreatePublicipRequest{
+		Body: body,
+	})
+}
+
 func GetPublicIP(client *eip.EipClient, ID string) (*eip_model.ShowPublicipResponse, error) {
 	return client.ShowPublicip(&eip_model.ShowPublicipRequest{
 		PublicipId: ID,
 	})
 }
 
-func UpdatePublicIP(client *eipv2.EipClient, ID string) (*eipv2_model.UpdatePublicipResponse, error) {
-	return client.UpdatePublicip(&eipv2_model.UpdatePublicipRequest{
+func DeletePublicIP(client *eip.EipClient, ID string) (*eip_model.DeletePublicipResponse, error) {
+	return client.DeletePublicip(&eip_model.DeletePublicipRequest{
 		PublicipId: ID,
-		Body: &eipv2_model.UpdatePublicipsRequestBody{
-			Publicip: &eipv2_model.UpdatePublicipOption{},
-		},
 	})
 }
 
