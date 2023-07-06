@@ -1,17 +1,63 @@
-## cce-operator
+# cnrancher/cce-operator
 
-> WIP
+For managing Huawei Cloud CCE Operator in Rancher.
 
-Usage:
+## Usage
 
-```sh
-make generate
-go build .
+1. Set up a kubernetes cluster and configure the `KUBECONFIG` file:
 
-kubectl apply -f ./charts/cce-operator-crd/templates/crds.yaml
-kubectl apply -f ./examples/create-example.yaml
-./cce-operator --debug
-```
+    ```console
+    $ export KUBECONFIG="$HOME/.kube/config"
+    ```
+
+1. Create a `Opaque` type secret (huawei cloud credential) in namespace `cattle-global-data`:
+
+    ```console
+    $ kubectl create namespace cattle-global-data
+    ```
+
+    ```yaml
+    apiVersion: v1
+    kind: Secret
+    type: Opaque
+    metadata:
+    labels:
+        cattle.io/creator: norman
+    name: "[secret-name]"
+    namespace: cattle-global-data
+    data:
+    huaweicredentialConfig-accessKey: "[base64 encoded access key]"
+    huaweicredentialConfig-secretKey: "[base64 encoded secret key]"
+    huaweicredentialConfig-projectID: "[base64 encoded project id]"
+    huaweicredentialConfig-regionID: "[base64 encoded region id]"
+    ```
+
+1. Build the operator executable file:
+
+    ```console
+    $ make generate
+    $ go build .
+    ```
+
+1. Apply the CRD:
+
+    ```console
+    $ kubectl apply -f ./charts/cce-operator-crd/templates/crds.yaml
+    ```
+
+1. Run the operator and create/import CCE cluster:
+
+    ```console
+    $ ./cce-operator --debug
+    ```
+
+    Modify the `CredentialSecret`, `hostNetwork`, `sshKey` and other configurations in `examples/create-example.yaml` and `examples/import-example.yaml`.
+
+    Launch another terminal for applying the yaml config files:
+
+    ```console
+    $ kubectl apply -f ./examples/create-example.yaml
+    ```
 
 ## License
 

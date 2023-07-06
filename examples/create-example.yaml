@@ -17,8 +17,8 @@ spec:
   description: "example create cluster"
   ipv6Enable: false
   hostNetwork:
-    vpcID: "d5842876-29a6-4751-87bd-7c4af4cf2f47"
-    subnetID: "c3a34386-5212-4484-be9c-1220807c4cfa"
+    vpcID: ""
+    subnetID: ""
   containerNetwork:
     mode: "overlay_l2"
     cidr: "172.16.123.0/24"
