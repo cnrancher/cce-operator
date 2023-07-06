@@ -1,10 +1,10 @@
 # cnrancher/cce-operator
 
-For managing Huawei Cloud CCE Operator in Rancher.
+Kubernetes controller for managing Huawei Cloud Container Engine (CCE) in Rancher.
 
 ## Usage
 
-1. Set up a kubernetes cluster and configure the `KUBECONFIG` file:
+1. Setup a kubernetes cluster and configure the `KUBECONFIG` file:
 
     ```console
     $ export KUBECONFIG="$HOME/.kube/config"
@@ -21,15 +21,13 @@ For managing Huawei Cloud CCE Operator in Rancher.
     kind: Secret
     type: Opaque
     metadata:
-    labels:
-        cattle.io/creator: norman
-    name: "[secret-name]"
-    namespace: cattle-global-data
+        name: "[secret-name]"
+        namespace: cattle-global-data
     data:
-    huaweicredentialConfig-accessKey: "[base64 encoded access key]"
-    huaweicredentialConfig-secretKey: "[base64 encoded secret key]"
-    huaweicredentialConfig-projectID: "[base64 encoded project id]"
-    huaweicredentialConfig-regionID: "[base64 encoded region id]"
+        huaweicredentialConfig-accessKey: "[base64 encoded access key]"
+        huaweicredentialConfig-secretKey: "[base64 encoded secret key]"
+        huaweicredentialConfig-projectID: "[base64 encoded project id]"
+        huaweicredentialConfig-regionID: "[base64 encoded region id]"
     ```
 
 1. Build the operator executable file:
