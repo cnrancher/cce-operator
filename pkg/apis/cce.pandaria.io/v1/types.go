@@ -33,30 +33,30 @@ type CCEClusterConfig struct {
 
 // CCEClusterConfigSpec is the spec for a CCEClusterConfig resource
 type CCEClusterConfigSpec struct {
-	CredentialSecret     string                `json:"credentialSecret"`
-	Category             string                `json:"category,omitempty"` // 集群类别: CCE
-	RegionID             string                `json:"regionID,omitempty"`
-	ClusterID            string                `json:"clusterID,omitempty"` // ClusterID only used for import cluster
-	Imported             bool                  `json:"imported,omitempty"`
-	Name                 string                `json:"name" norman:"noupdate"`
-	Labels               map[string]string     `json:"labels,omitempty"`
-	Type                 string                `json:"type"`
-	Flavor               string                `json:"flavor" norman:"noupdate"`
-	Version              string                `json:"version" norman:"noupdate"`
-	Description          string                `json:"description,omitempty" norman:"noupdate"`
-	Ipv6Enable           bool                  `json:"ipv6Enable,omitempty"`
-	HostNetwork          CCEHostNetwork        `json:"hostNetwork"`
-	ContainerNetwork     CCEContainerNetwork   `json:"containerNetwork"`
-	EniNetwork           CCEEniNetwork         `json:"eniNetwork,omitempty"`
-	Authentication       CCEAuthentication     `json:"authentication,omitempty"`
-	BillingMode          int32                 `json:"clusterBillingMode,omitempty" norman:"noupdate"`
-	KubernetesSvcIPRange string                `json:"kubernetesSvcIPRange,omitempty" norman:"noupdate"`
-	Tags                 map[string]string     `json:"tags"`
-	KubeProxyMode        string                `json:"kubeProxyMode,omitempty"`
-	PublicAccess         bool                  `json:"publicAccess"` // 若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
-	PublicIP             CCEClusterPublicIP    `json:"publicIP"`     // PublicAccess 为 true 且未提供一有的 ClusterExternalIP 时，创建公网 IP
-	ExtendParam          CCEClusterExtendParam `json:"extendParam,omitempty"`
-	NodePools            []CCENodePool         `json:"nodePools,omitempty"`
+	HuaweiCredentialSecret string                `json:"huaweiCredentialSecret"`
+	Category               string                `json:"category,omitempty"` // 集群类别: CCE
+	RegionID               string                `json:"regionID,omitempty"`
+	ClusterID              string                `json:"clusterID,omitempty"` // 仅导入集群时需要提供
+	Imported               bool                  `json:"imported,omitempty"`
+	Name                   string                `json:"name" norman:"noupdate"`
+	Labels                 map[string]string     `json:"labels,omitempty"`
+	Type                   string                `json:"type"`
+	Flavor                 string                `json:"flavor" norman:"noupdate"`
+	Version                string                `json:"version" norman:"noupdate"`
+	Description            string                `json:"description,omitempty" norman:"noupdate"`
+	Ipv6Enable             bool                  `json:"ipv6Enable,omitempty"`
+	HostNetwork            CCEHostNetwork        `json:"hostNetwork"`
+	ContainerNetwork       CCEContainerNetwork   `json:"containerNetwork"`
+	EniNetwork             CCEEniNetwork         `json:"eniNetwork,omitempty"`
+	Authentication         CCEAuthentication     `json:"authentication,omitempty"`
+	BillingMode            int32                 `json:"clusterBillingMode,omitempty" norman:"noupdate"`
+	KubernetesSvcIPRange   string                `json:"kubernetesSvcIPRange,omitempty" norman:"noupdate"`
+	Tags                   map[string]string     `json:"tags"`
+	KubeProxyMode          string                `json:"kubeProxyMode,omitempty"`
+	PublicAccess           bool                  `json:"publicAccess"` // 若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
+	PublicIP               CCEClusterPublicIP    `json:"publicIP"`     // PublicAccess 为 true 且未提供一有的 ClusterExternalIP 时，创建公网 IP
+	ExtendParam            CCEClusterExtendParam `json:"extendParam,omitempty"`
+	NodePools              []CCENodePool         `json:"nodePools,omitempty"`
 }
 
 type CCEClusterConfigStatus struct {

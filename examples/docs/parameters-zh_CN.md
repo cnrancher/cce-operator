@@ -1,8 +1,11 @@
 # CCE Operator Parameter
 
+创建集群的参数：
+
 ````json
-{   // 创建集群时填写的参数字段与华为云文档相对应：https://support.huaweicloud.com/api-cce/cce_02_0236.html#section4
-    "credentialSecret": "cattle-global-data:cc-test", // secret ID
+{
+    // 创建集群时填写的参数字段与华为云文档相对应：https://support.huaweicloud.com/api-cce/cce_02_0236.html#section4
+    "huaweiCredentialSecret": "cattle-global-data:cc-xxxxx", // secret ID
     "category": "CCE", // 保留选项，目前只支持 CCE，后续可以创建 Turbo
     "regionID": "cn-north-1", // CCE 集群的 Region
     "clusterID": "", // 创建集群时，此参数为空字符串，仅导入集群时需要此字段
@@ -45,9 +48,10 @@
         "cluster-key": "cluster-value" // 集群资源标签
     },
     "kubeProxyMode": "iptables", // 服务转发模式, iptables 或 ipvs (默认 iptables)
-    "publicAccess": true, // 是否公开访问，若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
-                           // 若为 false，则创建集群时不配置公网 IP
-    "publicIP": {
+    "publicAccess": true, // 为 Operator 独有的参数
+                          // 是否公开访问，若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
+                          // 若为 false，则创建集群时不配置公网 IP
+    "publicIP": { // 为 Operator 独有的参数
         "createEIP": true, // 若为 true，Operator 在创建集群之前会先创建 EIP，之后在创建集群时将 EIP 绑定至集群
         "eip": { // Operator 创建 EIP 的参数
             "ipType": "5_sbgp", // 弹性IP类型 5_telcom（电信），5_union（联通），5_bgp（全动态BGP），5_sbgp（静态BGP）
@@ -124,3 +128,17 @@
     ]
 }
 ````
+
+----
+
+导入集群的参数：
+
+```json
+{
+    "clusterID": "aaa-bbb-ccc",
+    "huaweiCredentialSecret": "cattle-global-data:cc-xxxxx",
+    "imported": true,
+    "name": "import-example",
+    "regionID": "cn-north-1"
+}
+```

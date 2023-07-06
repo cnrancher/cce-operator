@@ -29,7 +29,6 @@ const (
 	cceConfigActivePhase     = "active"
 	cceConfigUpdatingPhase   = "updating"
 	cceConfigImportingPhase  = "importing"
-	allOpen                  = "0.0.0.0/0"
 	cceClusterConfigKind     = "CCEClusterConfig"
 )
 
@@ -257,7 +256,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 			return config, nil
 		}
 	}
-	upstreamSpec, err := BuildUpstreamClusterState(h.driver.CCE, cluster, nodePools)
+	upstreamSpec, err := BuildUpstreamClusterState(cluster, nodePools)
 	if err != nil {
 		return config, err
 	}
@@ -339,10 +338,27 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 		}
 	}
 
-	if !config.Spec.Imported {
+	if config.Spec.Imported {
+		cannotBeEmptyError := "field [%s] cannot be empty for non-import cluster [%s]"
+		if config.Spec.HuaweiCredentialSecret == "" {
+			return fmt.Errorf(cannotBeEmptyError, "huaweiCredentialSecret", config.Name)
+		}
+		if config.Spec.ClusterID == "" {
+			return fmt.Errorf(cannotBeEmptyError, "clusterID", config.Name)
+		}
+		_, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
+		if err != nil {
+			hwerr, _ := huawei.NewHuaweiError(err)
+			if hwerr.StatusCode == 404 {
+				return fmt.Errorf("failed to find cluster [%s]: %v",
+					config.Spec.ClusterID, hwerr.ErrorMessage)
+			}
+			return err
+		}
+	} else {
 		listClustersRes, err := cce.ListClusters(h.driver.CCE)
 		if err != nil {
-			return fmt.Errorf("ListClusters: %w", err)
+			return fmt.Errorf("cce.ListClusters failed: %w", err)
 		}
 		for _, cluster := range *listClustersRes.Items {
 			if config.Spec.Name == cluster.Metadata.Name {
@@ -351,8 +367,8 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 			}
 		}
 		cannotBeEmptyError := "field [%s] cannot be empty for non-import cluster [%s]"
-		if config.Spec.CredentialSecret == "" {
-			return fmt.Errorf(cannotBeEmptyError, "credentialSecret", config.Name)
+		if config.Spec.HuaweiCredentialSecret == "" {
+			return fmt.Errorf(cannotBeEmptyError, "huaweiCredentialSecret", config.Name)
 		}
 		if config.Spec.Name == "" {
 			return fmt.Errorf(cannotBeEmptyError, "name", config.Name)
@@ -608,9 +624,9 @@ func NewHuaweiClientAuth(
 	if region == "" {
 		return nil, fmt.Errorf("regionID not provided")
 	}
-	ns, id := utils.Parse(spec.CredentialSecret)
-	if spec.CredentialSecret == "" {
-		return nil, fmt.Errorf("cce credential secret not provided")
+	ns, id := utils.Parse(spec.HuaweiCredentialSecret)
+	if spec.HuaweiCredentialSecret == "" {
+		return nil, fmt.Errorf("huawei credential secret not provided")
 	}
 
 	secret, err := secretsCache.Get(ns, id)
@@ -636,13 +652,13 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 		return config, fmt.Errorf("waitForCreationComplete: %w", err)
 	}
 
-	if cluster.Status == nil {
-		return config, fmt.Errorf("no cluster status was returned")
+	if cluster.Status == nil || cluster.Metadata == nil || cluster.Spec == nil {
+		return config, fmt.Errorf("cce.GetCluster returns invalid value")
 	}
 
 	if *cluster.Status.Phase == cce.ClusterStatusUnavailable {
-		return config, fmt.Errorf("creation failed for cluster %q",
-			cluster.Metadata.Name)
+		return config, fmt.Errorf("creation failed for cluster %q: %v",
+			cluster.Metadata.Name, utils.GetValue(cluster.Status.Reason))
 	}
 
 	if *cluster.Status.Phase == cce.ClusterStatusAvailable {
@@ -651,7 +667,7 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 		}
 		h.log.Infof("cluster [%s] created successfully", config.Name)
 		config = config.DeepCopy()
-		config.Status.Phase = cceConfigActivePhase
+		config.Status.Phase = cceConfigUpdatingPhase
 		config, err = h.cceCC.UpdateStatus(config)
 		if err != nil {
 			return config, err
@@ -768,7 +784,28 @@ func (h *Handler) updateUpstreamClusterState(
 }
 
 func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
-	return h.cceCC.UpdateStatus(config)
+	cluster, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
+	if err != nil {
+		return config, err
+	}
+	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Spec.ClusterID, false)
+	if err != nil {
+		return config, err
+	}
+
+	upstreamConfig, err := BuildUpstreamClusterState(cluster, nodePools)
+	if err != nil {
+		return config, err
+	}
+	configUpdate := config.DeepCopy()
+	configUpdate.Status.ClusterID = config.Spec.ClusterID
+	configUpdate.Status.ClusterExternalIP = upstreamConfig.ExtendParam.ClusterExternalIP
+	configUpdate.Status.NodePools = upstreamConfig.NodePools
+	configUpdate.Status.Phase = cceConfigActivePhase
+	if err = h.createCASecret(configUpdate); err != nil {
+		return config, err
+	}
+	return h.cceCC.UpdateStatus(configUpdate)
 }
 
 // createCASecret creates a secret containing a CA and endpoint for use in generating a kubeconfig file.

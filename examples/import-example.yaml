@@ -1,59 +1,10 @@
 apiVersion: cce.pandaria.io/v1
 kind: CCEClusterConfig
 metadata:
-  name: "c-m-import"
+  name: "c-import"
 spec:
-  credentialSecret: "cattle-global-data:cc-test-cce"
-  category: "CCE"
-  region: "cn-north-1"
-  clusterID: "" # required for imported cluster
+  huaweiCredentialSecret: "cattle-global-data:cc-test-cce"
+  regionID: "cn-north-1"
+  clusterID: "aaa-bbb-ccc"
   imported: true
-  name: "test-import-1"
-  labels:
-    label-name: "label-value"
-  type: "VirtualMachine"
-  flavor: "cce.s1.small"
-  version: "v1.23"
-  description: "example create cluster"
-  ipv6Enable: false
-  hostNetwork:
-    vpcID: ""
-    subnetID: ""
-  containerNetwork:
-    mode: ""
-    cidr: ""
-  eniNetwork:
-    subnets:
-  authentication:
-    mode: ""
-    authenticatingProxy:
-      ca:
-      cert:
-      privateKey:
-  clusterBillingMode: 0
-  kubernetesSvcIPRange: ""
-  tags:
-  kubeProxyMode:
-  nodeConfigs:
-    - name: "" # name is created by cce-operator
-      nodeID: ""
-      flavor: "t6.large.2" # cheapest flavor for testing purpose
-      availableZone: "cn-north-1a"
-      sshKey: "Starry-huawei-beijing1"
-      rootVolume:
-        size: 40
-        type: "SSD"
-      dataVolumes:
-        - size: 100
-          type: "SSD"
-      billingMode: 0
-      count: 1
-      operatingSystem: "EulerOS 2.9"
-      publicIP:
-        count: 0
-        eip:
-      extendParam:
-        periodType:
-        periodNum:
-        isAutoRenew:
-      labels:
+  name: "import-test"

@@ -3,7 +3,7 @@ kind: CCEClusterConfig
 metadata:
   name: "c-create"
 spec:
-  credentialSecret: "cattle-global-data:cc-test-cce"
+  huaweiCredentialSecret: "cattle-global-data:cc-test-cce"
   category: "CCE"
   regionID: "cn-north-1"
   clusterID: ""

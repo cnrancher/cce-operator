@@ -6,6 +6,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/cnrancher/cce-operator/pkg/controller"
@@ -29,7 +30,7 @@ var (
 func init() {
 	logrus.SetFormatter(&nested.Formatter{
 		HideKeys:        true,
-		TimestampFormat: "[01-02T15:04:05]",
+		TimestampFormat: time.DateTime,
 		FieldsOrder:     []string{"cluster", "phase"},
 	})
 

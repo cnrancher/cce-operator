@@ -56,9 +56,6 @@ spec:
                     nullable: true
                     type: string
                 type: object
-              credentialSecret:
-                nullable: true
-                type: string
               description:
                 nullable: true
                 type: string
@@ -106,6 +103,9 @@ spec:
                     nullable: true
                     type: string
                 type: object
+              huaweiCredentialSecret:
+                nullable: true
+                type: string
               imported:
                 type: boolean
               ipv6Enable:

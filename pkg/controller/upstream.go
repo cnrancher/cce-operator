@@ -5,12 +5,10 @@ import (
 
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	"github.com/cnrancher/cce-operator/pkg/utils"
-	huawei_cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	huawei_cce_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
 )
 
 func BuildUpstreamClusterState(
-	client *huawei_cce.CceClient,
 	cluster *huawei_cce_model.ShowClusterResponse,
 	nodePools *huawei_cce_model.ListNodePoolsResponse,
 ) (*ccev1.CCEClusterConfigSpec, error) {
@@ -22,18 +20,18 @@ func BuildUpstreamClusterState(
 			"failed to get cluster from CCE API: Metadata or Spec is nil")
 	}
 	spec := &ccev1.CCEClusterConfigSpec{
-		CredentialSecret:     "",
-		RegionID:             utils.GetValue(cluster.Spec.Az),
-		Imported:             false,
-		Name:                 cluster.Metadata.Name,
-		Labels:               cluster.Metadata.Labels,
-		Type:                 cluster.Spec.Type.Value(),
-		Flavor:               cluster.Spec.Flavor,
-		Version:              utils.GetValue(cluster.Spec.Version),
-		BillingMode:          utils.GetValue(cluster.Spec.BillingMode),
-		KubernetesSvcIPRange: utils.GetValue(cluster.Spec.KubernetesSvcIpRange),
-		KubeProxyMode:        cluster.Spec.KubeProxyMode.Value(),
-		PublicAccess:         false,
+		HuaweiCredentialSecret: "",
+		RegionID:               utils.GetValue(cluster.Spec.Az),
+		Imported:               false,
+		Name:                   cluster.Metadata.Name,
+		Labels:                 cluster.Metadata.Labels,
+		Type:                   cluster.Spec.Type.Value(),
+		Flavor:                 cluster.Spec.Flavor,
+		Version:                utils.GetValue(cluster.Spec.Version),
+		BillingMode:            utils.GetValue(cluster.Spec.BillingMode),
+		KubernetesSvcIPRange:   utils.GetValue(cluster.Spec.KubernetesSvcIpRange),
+		KubeProxyMode:          cluster.Spec.KubeProxyMode.Value(),
+		PublicAccess:           false,
 	}
 	if cluster.Spec.HostNetwork != nil {
 		spec.HostNetwork.VpcID = cluster.Spec.HostNetwork.Vpc
@@ -65,7 +63,7 @@ func BuildUpstreamClusterState(
 		spec.PublicAccess = true
 	}
 	var err error
-	spec.NodePools, err = BuildUpstreamNodePoolConfigs(client, nodePools)
+	spec.NodePools, err = BuildUpstreamNodePoolConfigs(nodePools)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +71,7 @@ func BuildUpstreamClusterState(
 }
 
 func BuildUpstreamNodePoolConfigs(
-	client *huawei_cce.CceClient, nodePoolsRes *huawei_cce_model.ListNodePoolsResponse,
+	nodePoolsRes *huawei_cce_model.ListNodePoolsResponse,
 ) ([]ccev1.CCENodePool, error) {
 	if nodePoolsRes == nil || nodePoolsRes.Items == nil {
 		return nil, fmt.Errorf("BuildUpstreamNodePoolConfigs: invalid nil parameter")

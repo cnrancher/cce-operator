@@ -12,11 +12,11 @@ import (
 func Test_CCEClusterConfig_Create(t *testing.T) {
 	c := CCEClusterConfig{
 		Spec: CCEClusterConfigSpec{
-			CredentialSecret: "cattle-global-data:cc-test",
-			Category:         "CCE",
-			ClusterID:        "aaa-bbb-ccc",
-			Imported:         false,
-			Name:             "cce-create-1",
+			HuaweiCredentialSecret: "cattle-global-data:cc-xxxx",
+			Category:               "CCE",
+			ClusterID:              "aaa-bbb-ccc",
+			Imported:               false,
+			Name:                   "cce-create-1",
 			Labels: map[string]string{
 				"key":  "value",
 				"key2": "value2",
@@ -141,6 +141,28 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 func Test_CCEClusterConfig_Create2(t *testing.T) {
 	// convert create-example yaml spec to json
 	d, err := os.ReadFile("../../../../examples/create-example.yaml")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	var tmp any
+	err = yaml.Unmarshal(d, &tmp)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	config := tmp.(map[string]any)
+	data, err := json.MarshalIndent(config["spec"], "", "    ")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fmt.Printf("%v\n", string(data))
+}
+
+func Test_CCEClusterConfig_Import2(t *testing.T) {
+	// convert create-example yaml spec to json
+	d, err := os.ReadFile("../../../../examples/import-example.yaml")
 	if err != nil {
 		t.Error(err)
 		return
