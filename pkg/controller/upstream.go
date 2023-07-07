@@ -59,8 +59,12 @@ func BuildUpstreamClusterState(
 			IsAutoPay:         utils.GetValue(cluster.Spec.ExtendParam.IsAutoPay),
 		}
 	}
-	if spec.ExtendParam.ClusterExternalIP != "" {
-		spec.PublicAccess = true
+	if cluster.Status != nil && cluster.Status.Endpoints != nil {
+		for _, endpoint := range *cluster.Status.Endpoints {
+			if endpoint.Type != nil && *endpoint.Type == "External" {
+				spec.PublicAccess = true
+			}
+		}
 	}
 	var err error
 	spec.NodePools, err = BuildUpstreamNodePoolConfigs(nodePools)
