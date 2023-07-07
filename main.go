@@ -42,6 +42,7 @@ func init() {
 
 	if debug {
 		logrus.SetLevel(logrus.DebugLevel)
+		logrus.Debugf("debug output enabled")
 	}
 	if version {
 		if utils.GitCommit != "" {
