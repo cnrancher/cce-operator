@@ -22,7 +22,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 		h.log.Infof("cluster [%s] is imported, will not delete CCE cluster", config.Name)
 		return config, nil
 	}
-	if err := h.newDriver(h.secretsCache, config.Spec); err != nil {
+	if err := h.newDriver(h.secretsCache, &config.Spec); err != nil {
 		return config, fmt.Errorf("error creating new CCE services: %w", err)
 	}
 	h.log.Infof("start deleting cluster [%s] resources", config.Name)
@@ -99,7 +99,7 @@ func (h *Handler) deleteCCEClusterNodePools(
 			// cce_model.GetNodeStatusPhaseEnum().ERROR,
 			cce_model.GetNodeStatusPhaseEnum().BUILD,
 			cce_model.GetNodeStatusPhaseEnum().DELETING:
-			h.log.Infof("waiting for node [%s], status: %v",
+			h.log.Infof("waiting for node [%s] status: %v",
 				utils.GetValue(node.Metadata.Name), node.Status.Phase.Value())
 			return config, true, nil
 		}
@@ -114,11 +114,10 @@ func (h *Handler) deleteCCEClusterNodePools(
 	}
 	var enqueueNode bool = false
 	for _, np := range *nodePools.Items {
-		if np.Metadata == nil {
+		if np.Metadata == nil || np.Metadata.Uid == nil {
 			continue
 		}
-		_, err := cce.DeleteNodePool(h.driver.CCE, config.Status.ClusterID, *np.Metadata.Uid)
-		if err != nil {
+		if _, err = cce.DeleteNodePool(h.driver.CCE, config.Status.ClusterID, *np.Metadata.Uid); err != nil {
 			return config, false, fmt.Errorf("error delete node pool [%s]: %w",
 				np.Metadata.Name, err)
 		}
@@ -148,7 +147,7 @@ func (h *Handler) deleteCCECluster(
 
 	cluster, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
 	if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
-		// Cluster deleted, update status
+		// Cluster deleted, update status.
 		h.log.Infof("deleted cluster [%s]", config.Spec.Name)
 		config = config.DeepCopy()
 		config.Status.ClusterID = ""
@@ -173,8 +172,7 @@ func (h *Handler) deleteCCECluster(
 		return config, true, nil
 	}
 
-	_, err = cce.DeleteCluster(h.driver.CCE, config.Status.ClusterID)
-	if err != nil {
+	if _, err = cce.DeleteCluster(h.driver.CCE, config.Status.ClusterID); err != nil {
 		return config, false, fmt.Errorf("failed to delete cluster: %w", err)
 	}
 	h.log.Infof("requested to delete cluster [%s]", config.Spec.Name)

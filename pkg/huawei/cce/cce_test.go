@@ -58,7 +58,7 @@ func Test_GetClusterNodePools(t *testing.T) {
 	if client == nil {
 		return
 	}
-	nodePools, err := cce.GetClusterNodePools(client, "93b0243f-16eb-11ee-bdb7-0255ac1000c0", true)
+	nodePools, err := cce.GetClusterNodePools(client, "", true)
 	if err != nil {
 		t.Error(err)
 		return

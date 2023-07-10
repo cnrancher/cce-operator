@@ -85,7 +85,7 @@ func (h *Handler) OnCCEConfigChanged(_ string, config *ccev1.CCEClusterConfig) (
 		})
 	}
 
-	if err := h.newDriver(h.secretsCache, config.Spec); err != nil {
+	if err := h.newDriver(h.secretsCache, &config.Spec); err != nil {
 		return config, fmt.Errorf("error creating new CCE services: %w", err)
 	}
 
@@ -312,16 +312,19 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 	if cluster.Metadata == nil || cluster.Metadata.Uid == nil {
 		return config, fmt.Errorf("cce.CreateCluster return invalid value")
 	}
-	config = config.DeepCopy()
-	config.Status.ClusterID = *cluster.Metadata.Uid
-	config.Status.Phase = cceConfigCreatingPhase
-	config.Status.FailureMessage = ""
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		config = config.DeepCopy()
+		config.Status.ClusterID = *cluster.Metadata.Uid
+		config.Status.Phase = cceConfigCreatingPhase
+		config.Status.FailureMessage = ""
+		config, err = h.cceCC.UpdateStatus(config)
+		return err
+	})
 	h.log.Infof("created cluster %q", config.Status.ClusterID)
-
-	config, err = h.cceCC.UpdateStatus(config)
-	if err != nil {
-		return config, err
-	}
 	return config, err
 }
 
@@ -355,6 +358,12 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 			}
 			return err
 		}
+		if config.Spec.RegionID == "" {
+			return fmt.Errorf(cannotBeEmptyError, "regionID", config.Name)
+		}
+		if config.Spec.Name == "" {
+			return fmt.Errorf(cannotBeEmptyError, "name", config.Name)
+		}
 	} else {
 		listClustersRes, err := cce.ListClusters(h.driver.CCE)
 		if err != nil {
@@ -385,11 +394,29 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 		if config.Spec.KubernetesSvcIPRange == "" {
 			return fmt.Errorf(cannotBeEmptyError, "kubernetesSvcIPRange", config.Name)
 		}
+		if config.Spec.ExtendParam.ClusterExternalIP != "" || config.Spec.PublicIP.CreateEIP {
+			if !config.Spec.PublicAccess {
+				return fmt.Errorf("'publicAccess' can not be 'false' when 'clusterExternalIP' provided " +
+					"or 'publicIP.createEIP' is true")
+			}
+		}
+		if config.Spec.PublicAccess {
+			if config.Spec.ExtendParam.ClusterExternalIP == "" && !config.Spec.PublicIP.CreateEIP {
+				return fmt.Errorf(
+					"should provide 'clusterExternalIP' or setup 'publicIP' if 'publicAccess' is true")
+			}
+		}
 		if len(config.Spec.NodePools) == 0 {
 			return fmt.Errorf(cannotBeEmptyError, "nodePools", config.Name)
 		}
-		for _, node := range config.Spec.NodePools {
-			nt := node.NodeTemplate
+		for _, pool := range config.Spec.NodePools {
+			if pool.Name == "" {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.name", config.Name)
+			}
+			if pool.InitialNodeCount == 0 {
+				return fmt.Errorf(cannotBeEmptyError, "nodePool.initialNodeCount", config.Name)
+			}
+			nt := pool.NodeTemplate
 			if nt.Flavor == "" {
 				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.flavor", config.Name)
 			}
@@ -462,7 +489,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 	}
 	// Do not create EIP and use existing EIP address.
-	if config.Status.ClusterExternalIP == "" && config.Spec.ExtendParam.ClusterExternalIP != "" {
+	if config.Spec.PublicAccess && config.Status.ClusterExternalIP == "" && config.Spec.ExtendParam.ClusterExternalIP != "" {
 		configUpdate := config.DeepCopy()
 		configUpdate.Status.ClusterExternalIP = config.Spec.ExtendParam.ClusterExternalIP
 		config, err = h.cceCC.UpdateStatus(configUpdate)
@@ -583,11 +610,11 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		// Ensure provided VPC and subnet exists.
 		_, err = network.GetVPC(h.driver.VPC, config.Spec.HostNetwork.VpcID)
 		if err != nil {
-			return config, err
+			return config, fmt.Errorf("failed to get vpc: %w", err)
 		}
 		_, err = network.GetSubnet(h.driver.VPC, config.Spec.HostNetwork.SubnetID)
 		if err != nil {
-			return config, err
+			return config, fmt.Errorf("failed to get subnet: %w", err)
 		}
 		// Update status.
 		configUpdate := config.DeepCopy()
@@ -607,7 +634,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 	return config, err
 }
 
-func (h *Handler) newDriver(secretsCache wranglerv1.SecretCache, spec ccev1.CCEClusterConfigSpec) error {
+func (h *Handler) newDriver(secretsCache wranglerv1.SecretCache, spec *ccev1.CCEClusterConfigSpec) error {
 	auth, err := NewHuaweiClientAuth(secretsCache, spec)
 	if err != nil {
 		return err
@@ -618,7 +645,7 @@ func (h *Handler) newDriver(secretsCache wranglerv1.SecretCache, spec ccev1.CCEC
 }
 
 func NewHuaweiClientAuth(
-	secretsCache wranglerv1.SecretCache, spec ccev1.CCEClusterConfigSpec,
+	secretsCache wranglerv1.SecretCache, spec *ccev1.CCEClusterConfigSpec,
 ) (*common.ClientAuth, error) {
 	region := spec.RegionID
 	if region == "" {
@@ -675,7 +702,7 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 		return config, nil
 	}
 
-	h.log.Infof("waiting for cluster [%s], status %q",
+	h.log.Infof("waiting for cluster [%s] status %q",
 		config.Spec.Name, *cluster.Status.Phase)
 	h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
 
@@ -713,10 +740,10 @@ func (h *Handler) updateUpstreamClusterState(
 	}
 
 	// Update node pools.
-	// Compare nodeConfigs between status & spec.
+	// Compare nodePool configs between status & spec.
 	updateNode := false
 	for _, specNP := range config.Spec.NodePools {
-		// This for loop creates node pool exists in spec but not exists in status
+		// This for loop creates node pool exists in spec but not exists in status.
 		found := false
 		for _, statusNP := range config.Status.NodePools {
 			if CompareNodePool(&specNP, &statusNP) {
@@ -726,45 +753,49 @@ func (h *Handler) updateUpstreamClusterState(
 				break
 			}
 		}
-		if !found {
-			// Create node pool
-			res, err := cce.CreateNodePool(
-				h.driver.CCE, config.Status.ClusterID, &specNP)
-			if err != nil {
-				return config, fmt.Errorf("updateUpstreamClusterState createNodePool: %w", err)
-			}
-			if res.Metadata == nil {
-				return config, fmt.Errorf("updateUpstreamClusterState: CreateNodePool returns invalid data")
-			}
-			updateNode = true
-			h.log.Infof("request to create node pool [%s], ID [%s]",
-				res.Metadata.Name, utils.GetValue(res.Metadata.Uid))
+		if found {
+			continue
 		}
+
+		// Create node pool if not fount in upstream spec.
+		res, err := cce.CreateNodePool(
+			h.driver.CCE, config.Status.ClusterID, &specNP)
+		if err != nil {
+			return config, fmt.Errorf("updateUpstreamClusterState createNodePool: %w", err)
+		}
+		if res.Metadata == nil {
+			return config, fmt.Errorf("updateUpstreamClusterState: CreateNodePool returns invalid data")
+		}
+		updateNode = true
+		h.log.Infof("request to create node pool [%s], ID [%s]",
+			res.Metadata.Name, utils.GetValue(res.Metadata.Uid))
 	}
 	for _, statusNP := range config.Status.NodePools {
-		// This for loop deletes node pools exists in status but not exists in spec
+		// This for loop deletes node pools exists in status but not exists in spec.
 		found := false
 		for _, specNP := range config.Spec.NodePools {
 			if CompareNodePool(&statusNP, &specNP) {
 				found = true
+				break
 			}
 		}
-		if !found {
-			h.log.Debugf("nodepool [%s] exists in upstream spec but not exists in spec, should delete",
-				statusNP.Name)
-			// Delete node pool
-			res, err := cce.DeleteNodePool(
-				h.driver.CCE, config.Status.ClusterID, statusNP.ID)
-			if err != nil {
-				return config, fmt.Errorf("updateUpstreamClusterState deleteNodePool: %w", err)
-			}
-			if res.Metadata == nil {
-				return config, fmt.Errorf("updateUpstreamClusterState: DeleteNodePool returns invalid data")
-			}
-			updateNode = true
-			h.log.Infof("request to delete node group [%s], ID [%s]",
-				statusNP.Name, statusNP.ID)
+		if found {
+			continue
 		}
+		h.log.Debugf("nodepool [%s] exists in upstream spec but not exists in spec, should delete",
+			statusNP.Name)
+		// Delete node pool
+		res, err := cce.DeleteNodePool(
+			h.driver.CCE, config.Status.ClusterID, statusNP.ID)
+		if err != nil {
+			return config, fmt.Errorf("updateUpstreamClusterState deleteNodePool: %w", err)
+		}
+		if res.Metadata == nil {
+			return config, fmt.Errorf("updateUpstreamClusterState: DeleteNodePool returns invalid data")
+		}
+		updateNode = true
+		h.log.Infof("request to delete node group [%s], ID [%s]",
+			statusNP.Name, statusNP.ID)
 	}
 	if updateNode {
 		return h.enqueueUpdate(config)
@@ -780,6 +811,7 @@ func (h *Handler) updateUpstreamClusterState(
 		}
 		return config, nil
 	}
+	h.cceEnqueueAfter(config.Namespace, config.Name, 5*time.Minute) // enqueue every 5 minutes
 	return config, nil
 }
 
@@ -810,8 +842,8 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 
 // createCASecret creates a secret containing a CA and endpoint for use in generating a kubeconfig file.
 func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
-	// TODO: refresh cluster certs after 365 days
-	certs, err := cce.GetClusterCert(h.driver.CCE, config.Status.ClusterID, 365)
+	// TODO: refresh cluster certs after 3 years
+	certs, err := cce.GetClusterCert(h.driver.CCE, config.Status.ClusterID, 365*3)
 	if err != nil {
 		return err
 	}
@@ -825,7 +857,7 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 			clusterCert = &c
 			break
 		}
-		if !config.Spec.PublicAccess && utils.GetValue(c.Name) == "internalCluster" {
+		if utils.GetValue(c.Name) == "internalCluster" {
 			clusterCert = &c
 		}
 	}
