@@ -5,10 +5,12 @@ import (
 
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	"github.com/cnrancher/cce-operator/pkg/huawei/common"
+	"github.com/cnrancher/cce-operator/pkg/utils"
 	huawei_utils "github.com/huaweicloud/huaweicloud-sdk-go-v3/core/utils"
 	cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/region"
+	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -39,24 +41,40 @@ func NewCCEClient(auth *common.ClientAuth) *cce.CceClient {
 func CreateCluster(
 	client *cce.CceClient, config *ccev1.CCEClusterConfig,
 ) (*model.CreateClusterResponse, error) {
-	clusterReq := common.GetClusterRequestFromCCECCConfig(config)
-	return client.CreateCluster(clusterReq)
+	req := common.GetClusterRequestFromCCECCConfig(config)
+	res, err := client.CreateCluster(req)
+	if err != nil {
+		logrus.Debugf("CreateCluster failed: %v", utils.PrintObject(req))
+	}
+	return res, err
 }
 
 func GetCluster(client *cce.CceClient, ID string) (*model.ShowClusterResponse, error) {
-	return client.ShowCluster(&model.ShowClusterRequest{
+	res, err := client.ShowCluster(&model.ShowClusterRequest{
 		ClusterId: ID,
 	})
+	if err != nil {
+		logrus.Debugf("ShowCluster failed: clusterID [%s]", ID)
+	}
+	return res, err
 }
 
 func ListClusters(client *cce.CceClient) (*model.ListClustersResponse, error) {
-	return client.ListClusters(&model.ListClustersRequest{})
+	res, err := client.ListClusters(&model.ListClustersRequest{})
+	if err != nil {
+		logrus.Debugf("ListClusters failed")
+	}
+	return res, err
 }
 
 func DeleteCluster(client *cce.CceClient, ID string) (*model.DeleteClusterResponse, error) {
-	return client.DeleteCluster(&model.DeleteClusterRequest{
+	res, err := client.DeleteCluster(&model.DeleteClusterRequest{
 		ClusterId: ID,
 	})
+	if err != nil {
+		logrus.Debugf("DeleteCluster failed: clusterID [%s]", ID)
+	}
+	return res, err
 }
 
 func GetClusterRestConfig(
@@ -108,5 +126,9 @@ func GetClusterCert(
 			Duration: duration,
 		},
 	}
-	return client.CreateKubernetesClusterCert(request)
+	res, err := client.CreateKubernetesClusterCert(request)
+	if err != nil {
+		logrus.Debugf("CreateKubernetesClusterCert failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }

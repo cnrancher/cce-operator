@@ -16,6 +16,7 @@ import (
 	vpcep "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpcep/v1"
 	vpcep_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpcep/v1/model"
 	vpcep_region "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpcep/v1/region"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -95,48 +96,73 @@ func CreatePublicIP(
 	}
 	body.Bandwidth.ShareType = shareType
 
-	return client.CreatePublicip(&eip_model.CreatePublicipRequest{
+	res, err := client.CreatePublicip(&eip_model.CreatePublicipRequest{
 		Body: body,
 	})
+	if err != nil {
+		logrus.Debugf("CreatePublicip failed: %v", utils.PrintObject(body))
+	}
+	return res, err
 }
 
 func GetPublicIP(client *eip.EipClient, ID string) (*eip_model.ShowPublicipResponse, error) {
-	return client.ShowPublicip(&eip_model.ShowPublicipRequest{
+	res, err := client.ShowPublicip(&eip_model.ShowPublicipRequest{
 		PublicipId: ID,
 	})
+	if err != nil {
+		logrus.Debugf("ShowPublicip failed: PublicIP ID [%v]", ID)
+	}
+	return res, err
 }
 
 func DeletePublicIP(client *eip.EipClient, ID string) (*eip_model.DeletePublicipResponse, error) {
-	return client.DeletePublicip(&eip_model.DeletePublicipRequest{
+	res, err := client.DeletePublicip(&eip_model.DeletePublicipRequest{
 		PublicipId: ID,
 	})
+	if err != nil {
+		logrus.Debugf("DeletePublicip failed: PublicIP ID [%s]", ID)
+	}
+	return res, err
 }
 
 func GetVPC(client *vpc.VpcClient, ID string) (*vpc_model.ShowVpcResponse, error) {
-	return client.ShowVpc(&vpc_model.ShowVpcRequest{
+	res, err := client.ShowVpc(&vpc_model.ShowVpcRequest{
 		VpcId: ID,
 	})
+	if err != nil {
+		logrus.Debugf("ShowVpc failed: VPC ID [%s]", ID)
+	}
+	return res, err
 }
 
 func CreateVPC(client *vpc.VpcClient, name, cidr string) (*vpc_model.CreateVpcResponse, error) {
-	return client.CreateVpc(&vpc_model.CreateVpcRequest{
+	request := &vpc_model.CreateVpcRequest{
 		Body: &vpc_model.CreateVpcRequestBody{
 			Vpc: &vpc_model.CreateVpcOption{
 				Name: &name,
 				Cidr: &cidr,
 			},
 		},
-	})
+	}
+	res, err := client.CreateVpc(request)
+	if err != nil {
+		logrus.Debugf("CreateVpc failed: %v", utils.PrintObject(res))
+	}
+	return res, err
 }
 
 func GetSubnet(client *vpc.VpcClient, ID string) (*vpc_model.ShowSubnetResponse, error) {
-	return client.ShowSubnet(&vpc_model.ShowSubnetRequest{
+	res, err := client.ShowSubnet(&vpc_model.ShowSubnetRequest{
 		SubnetId: ID,
 	})
+	if err != nil {
+		logrus.Debugf("ShowSubnet failed: subnet ID [%v]", ID)
+	}
+	return res, err
 }
 
 func CreateSubnet(client *vpc.VpcClient, name, vpcID, pDNS, sDNS string) (*vpc_model.CreateSubnetResponse, error) {
-	return client.CreateSubnet(&vpc_model.CreateSubnetRequest{
+	request := &vpc_model.CreateSubnetRequest{
 		Body: &vpc_model.CreateSubnetRequestBody{
 			Subnet: &vpc_model.CreateSubnetOption{
 				Name:         name,
@@ -148,83 +174,132 @@ func CreateSubnet(client *vpc.VpcClient, name, vpcID, pDNS, sDNS string) (*vpc_m
 				DhcpEnable:   utils.GetPtr(true),
 			},
 		},
-	})
+	}
+	res, err := client.CreateSubnet(request)
+	if err != nil {
+		logrus.Debugf("CreateSubnet failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }
 
 func DeleteVPC(client *vpc.VpcClient, ID string) (*vpc_model.DeleteVpcResponse, error) {
-	return client.DeleteVpc(&vpc_model.DeleteVpcRequest{
+	res, err := client.DeleteVpc(&vpc_model.DeleteVpcRequest{
 		VpcId: ID,
 	})
+	if err != nil {
+		logrus.Debugf("DeleteVpc failed: VPC ID [%s]", ID)
+	}
+	return res, err
 }
 
 func DeleteSubnet(
 	client *vpc.VpcClient, vpcID string, subnetID string,
 ) (*vpc_model.DeleteSubnetResponse, error) {
-	return client.DeleteSubnet(&vpc_model.DeleteSubnetRequest{
+	res, err := client.DeleteSubnet(&vpc_model.DeleteSubnetRequest{
 		VpcId:    vpcID,
 		SubnetId: subnetID,
 	})
+	if err != nil {
+		logrus.Debugf("DeleteSubnet failed: VPC ID [%s], Subnet ID [%s]", vpcID, subnetID)
+	}
+	return res, err
 }
 
 func GetVpcRoutes(
-	client *vpc.VpcClient, VpcID string,
+	client *vpc.VpcClient, vpcID string,
 ) (*vpc_model.ListVpcRoutesResponse, error) {
-	return client.ListVpcRoutes(&vpc_model.ListVpcRoutesRequest{
-		VpcId: &VpcID,
+	res, err := client.ListVpcRoutes(&vpc_model.ListVpcRoutesRequest{
+		VpcId: &vpcID,
 	})
+	if err != nil {
+		logrus.Debugf("ListVpcRoutes failed: VPC ID [%s]", vpcID)
+	}
+	return res, err
 }
 
 func GetVpcRoute(client *vpc.VpcClient, RouteID string) (*vpc_model.ShowVpcRouteResponse, error) {
-	return client.ShowVpcRoute(&vpc_model.ShowVpcRouteRequest{
+	res, err := client.ShowVpcRoute(&vpc_model.ShowVpcRouteRequest{
 		RouteId: RouteID,
 	})
+	if err != nil {
+		logrus.Debugf("ShowVpcRoute failed: RouteID [%s]", RouteID)
+	}
+	return res, err
 }
 
 func DeleteRoute(client *vpc.VpcClient, RouteID string) (*vpc_model.DeleteVpcRouteResponse, error) {
-	return client.DeleteVpcRoute(&vpc_model.DeleteVpcRouteRequest{
+	res, err := client.DeleteVpcRoute(&vpc_model.DeleteVpcRouteRequest{
 		RouteId: RouteID,
 	})
+	if err != nil {
+		logrus.Debugf("DeleteVpcRoute failed: RouteID [%s]", RouteID)
+	}
+	return res, err
 }
 
 func GetRouteTables(
 	client *vpc.VpcClient, RtID, VpcID, SubnetID string,
 ) (*vpc_model.ListRouteTablesResponse, error) {
-	return client.ListRouteTables(&vpc_model.ListRouteTablesRequest{
+	request := &vpc_model.ListRouteTablesRequest{
 		Id:       &RtID,
 		VpcId:    &VpcID,
 		SubnetId: &SubnetID,
-	})
+	}
+	res, err := client.ListRouteTables(request)
+	if err != nil {
+		logrus.Debugf("ListRouteTables failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }
 
 func GetVpcepServices(
 	client *vpcep.VpcepClient, svcID string,
 ) (*vpcep_model.ListEndpointServiceResponse, error) {
-	return client.ListEndpointService(&vpcep_model.ListEndpointServiceRequest{
+	res, err := client.ListEndpointService(&vpcep_model.ListEndpointServiceRequest{
 		Id: &svcID,
 	})
+	if err != nil {
+		logrus.Debugf("ListEndpointService failed: service ID %v", svcID)
+	}
+	return res, err
 }
 
 func GetVpcepService(client *vpcep.VpcepClient, svcID string) (*vpcep_model.ListServiceDetailsResponse, error) {
-	return client.ListServiceDetails(&vpcep_model.ListServiceDetailsRequest{
+	res, err := client.ListServiceDetails(&vpcep_model.ListServiceDetailsRequest{
 		VpcEndpointServiceId: svcID,
 	})
+	if err != nil {
+		logrus.Debugf("ListServiceDetails failed: service ID %v", svcID)
+	}
+	return res, err
 }
 
 func DeleteVpcepService(client *vpcep.VpcepClient, ID string) (*vpcep_model.DeleteEndpointServiceResponse, error) {
-	return client.DeleteEndpointService(&vpcep_model.DeleteEndpointServiceRequest{
+	res, err := client.DeleteEndpointService(&vpcep_model.DeleteEndpointServiceRequest{
 		VpcEndpointServiceId: ID,
 	})
+	if err != nil {
+		logrus.Debugf("DeleteEndpointService failed: ID %v", ID)
+	}
+	return res, err
 }
 
 func ListNameServers(client *dns.DnsClient, region string) (*dns_model.ListNameServersResponse, error) {
-	return client.ListNameServers(&dns_model.ListNameServersRequest{
+	res, err := client.ListNameServers(&dns_model.ListNameServersRequest{
 		Region: &region,
 	})
+	if err != nil {
+		logrus.Debugf("ListNameServers failed: Region %q", region)
+	}
+	return res, err
 }
 
 func ListSecurityGroups(client *vpc.VpcClient, vpcID string) (*vpc_model.ListSecurityGroupsResponse, error) {
-	response, err := client.ListSecurityGroups(&vpc_model.ListSecurityGroupsRequest{
+	res, err := client.ListSecurityGroups(&vpc_model.ListSecurityGroupsRequest{
 		VpcId: &vpcID,
 	})
-	return response, err
+	if err != nil {
+		logrus.Debugf("ListSecurityGroups failed: vpc ID %q", vpcID)
+	}
+	return res, err
 }

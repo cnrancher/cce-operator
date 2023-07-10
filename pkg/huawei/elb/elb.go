@@ -7,6 +7,7 @@ import (
 	elb "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/elb/v2"
 	elb_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/elb/v2/model"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/elb/v2/region"
+	"github.com/sirupsen/logrus"
 )
 
 func NewElbClient(c *common.ClientAuth) *elb.ElbClient {
@@ -31,21 +32,33 @@ func CreateELB(
 			},
 		},
 	}
-	return client.CreateLoadbalancer(request)
+	res, err := client.CreateLoadbalancer(request)
+	if err != nil {
+		logrus.Debugf("CreateLoadbalancer failed: %v", utils.PrintObject(res))
+	}
+	return res, err
 }
 
 func GetLoadBalancer(client *elb.ElbClient, ID string) (*elb_model.ShowLoadbalancerResponse, error) {
 	request := &elb_model.ShowLoadbalancerRequest{
 		LoadbalancerId: ID,
 	}
-	return client.ShowLoadbalancer(request)
+	res, err := client.ShowLoadbalancer(request)
+	if err != nil {
+		logrus.Debugf("ShowLoadbalancer failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }
 
 func ListListeners(client *elb.ElbClient) (*elb_model.ListListenersResponse, error) {
 	request := &elb_model.ListListenersRequest{
 		Limit: utils.GetPtr(int32(1000)),
 	}
-	return client.ListListeners(request)
+	res, err := client.ListListeners(request)
+	if err != nil {
+		logrus.Debugf("ListListeners failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }
 
 func UpdateListener(client *elb.ElbClient, ID string) (*elb_model.UpdateListenerResponse, error) {
@@ -55,17 +68,25 @@ func UpdateListener(client *elb.ElbClient, ID string) (*elb_model.UpdateListener
 			Listener: &elb_model.UpdateListenerReq{},
 		},
 	}
-	return client.UpdateListener(request)
+	res, err := client.UpdateListener(request)
+	if err != nil {
+		logrus.Debugf("UpdateListener failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }
 
 func DeleteListener(client *elb.ElbClient, ID string) (*elb_model.DeleteListenerResponse, error) {
 	request := &elb_model.DeleteListenerRequest{
 		ListenerId: ID,
 	}
-	return client.DeleteListener(request)
+	res, err := client.DeleteListener(request)
+	if err != nil {
+		logrus.Debugf("DeleteListener failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }
 
-func CreateListener(client *elb.ElbClient, ELBID, name, desc string) (*elb_model.ListenerResp, error) {
+func CreateListener(client *elb.ElbClient, ELBID, name, desc string) (*elb_model.CreateListenerResponse, error) {
 	request := &elb_model.CreateListenerRequest{
 		Body: &elb_model.CreateListenerRequestBody{
 			Listener: &elb_model.CreateListenerReq{
@@ -79,9 +100,9 @@ func CreateListener(client *elb.ElbClient, ELBID, name, desc string) (*elb_model
 	}
 	resp, err := client.CreateListener(request)
 	if err != nil {
-		return nil, err
+		logrus.Debugf("CreateListener failed: %v", utils.PrintObject(request))
 	}
-	return resp.Listener, nil
+	return resp, nil
 }
 
 func AddBackends(

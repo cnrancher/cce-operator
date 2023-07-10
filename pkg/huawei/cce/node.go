@@ -11,22 +11,26 @@ import (
 func CreateNodePool(
 	client *cce.CceClient, clusterID string, nodePool *ccev1.CCENodePool,
 ) (*model.CreateNodePoolResponse, error) {
-	createNodePoolReq, err := getNodePoolRequirement(clusterID, nodePool)
+	req, err := getNodePoolRequirement(clusterID, nodePool)
 	if err != nil {
 		return nil, err
 	}
-	cnpr, err := client.CreateNodePool(createNodePoolReq)
+	res, err := client.CreateNodePool(req)
 	if err != nil {
-		logrus.Debugf("createNodePool failed, request: %v", utils.PrintObject(createNodePoolReq))
+		logrus.Debugf("CreateNodePool failed: %v", utils.PrintObject(req))
 	}
-	return cnpr, err
+	return res, err
 }
 
 func GetClusterNodes(client *cce.CceClient, clusterID string) (*model.ListNodesResponse, error) {
 	request := &model.ListNodesRequest{
 		ClusterId: clusterID,
 	}
-	return client.ListNodes(request)
+	res, err := client.ListNodes(request)
+	if err != nil {
+		logrus.Debugf("ListNodes failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }
 
 func GetClusterNodePools(
@@ -36,10 +40,14 @@ func GetClusterNodePools(
 	if showDefaultNP {
 		sdnp = utils.GetPtr("true")
 	}
-	return client.ListNodePools(&model.ListNodePoolsRequest{
+	res, err := client.ListNodePools(&model.ListNodePoolsRequest{
 		ClusterId:           clusterID,
 		ShowDefaultNodePool: sdnp,
 	})
+	if err != nil {
+		logrus.Debugf("ListNodePools failed: clusterID [%s]", clusterID)
+	}
+	return res, err
 }
 
 func GetNode(
@@ -49,16 +57,25 @@ func GetNode(
 		ClusterId: clusterID,
 		NodeId:    nodeID,
 	}
-	return client.ShowNode(request)
+	res, err := client.ShowNode(request)
+	if err != nil {
+		logrus.Debugf("ShowNode failed: %v", utils.PrintObject(request))
+	}
+	return res, err
 }
 
 func GetNodePool(
 	client *cce.CceClient, clusterID, npID string,
 ) (*model.ShowNodePoolResponse, error) {
-	return client.ShowNodePool(&model.ShowNodePoolRequest{
+	res, err := client.ShowNodePool(&model.ShowNodePoolRequest{
 		ClusterId:  clusterID,
 		NodepoolId: npID,
 	})
+	if err != nil {
+		logrus.Debugf("ShowNodePool failed: clusterID [%s], nodePoolID [%s]",
+			clusterID, npID)
+	}
+	return res, err
 }
 
 func DeleteNode(
@@ -69,7 +86,7 @@ func DeleteNode(
 		NodeId:    nodeID,
 	})
 	if err != nil {
-		logrus.Debugf("failed to delete node, request: %v", utils.PrintObject(res))
+		logrus.Debugf("DeleteNode failed: %v", utils.PrintObject(res))
 	}
 	return res, err
 }
@@ -82,7 +99,7 @@ func DeleteNodePool(
 		NodepoolId: npID,
 	})
 	if err != nil {
-		logrus.Debugf("failed to delete node pool, request: %v", utils.PrintObject(res))
+		logrus.Debugf("DeleteNodePool failed: %v", utils.PrintObject(res))
 	}
 	return res, err
 }
