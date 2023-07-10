@@ -54,7 +54,7 @@ type CCEClusterConfigSpec struct {
 	Tags                   map[string]string     `json:"tags"`
 	KubeProxyMode          string                `json:"kubeProxyMode,omitempty"`
 	PublicAccess           bool                  `json:"publicAccess"` // 若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
-	PublicIP               CCEClusterPublicIP    `json:"publicIP"`     // PublicAccess 为 true 且未提供一有的 ClusterExternalIP 时，创建公网 IP
+	PublicIP               CCEClusterPublicIP    `json:"publicIP"`     // PublicAccess 为 true 且未提供已有的 ClusterExternalIP 时，创建公网 IP
 	ExtendParam            CCEClusterExtendParam `json:"extendParam,omitempty"`
 	NodePools              []CCENodePool         `json:"nodePools,omitempty"`
 }
@@ -99,9 +99,9 @@ type CCEAuthenticatingProxy struct {
 }
 
 type CCENodePool struct {
-	Name                 string                     `json:"name,omitempty"`   // 节点池名称
-	Type                 string                     `json:"type"`             // 节点池类型：vm, ElasticBMS, pm (default: vm)
-	ID                   string                     `json:"nodeID,omitempty"` // 节点池 ID，仅用于查询
+	Name                 string                     `json:"name,omitempty"`       // 节点池名称
+	Type                 string                     `json:"type"`                 // 节点池类型：vm, ElasticBMS, pm (default: vm)
+	ID                   string                     `json:"nodePoolID,omitempty"` // 节点池 ID，仅用于查询
 	NodeTemplate         CCENodeTemplate            `json:"nodeTemplate"`
 	InitialNodeCount     int32                      `json:"initialNodeCount"` // 节点池初始化节点个数。查询时为节点池目标节点数量。
 	Autoscaling          CCENodePoolNodeAutoscaling `json:"autoscaling"`

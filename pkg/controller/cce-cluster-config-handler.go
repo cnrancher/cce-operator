@@ -117,13 +117,8 @@ func (h *Handler) recordError(
 			return config, err
 		}
 		if err != nil {
-			h.log.Warnf("onChange error: %v", err)
-			if huawei.IsHuaweiError(err) {
-				hwerr, _ := huawei.NewHuaweiError(err)
-				message = hwerr.String()
-			} else {
-				message = err.Error()
-			}
+			h.log.Warnf("%v", err)
+			message = err.Error()
 		}
 
 		if config.Name == "" {
@@ -131,15 +126,17 @@ func (h *Handler) recordError(
 		}
 
 		if config.Status.FailureMessage == message {
+			// Avoid trigger the HWCloud API rate limit.
+			if message != "" {
+				time.Sleep(time.Second * 5)
+			}
 			return config, err
 		}
 
 		config = config.DeepCopy()
-		if message != "" {
-			if config.Status.Phase == cceConfigActivePhase {
-				// can assume an update is failing
-				config.Status.Phase = cceConfigUpdatingPhase
-			}
+		if message != "" && config.Status.Phase == cceConfigActivePhase {
+			// can assume an update is failing
+			config.Status.Phase = cceConfigUpdatingPhase
 		}
 		config.Status.FailureMessage = message
 
@@ -868,26 +865,33 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 	endpoint := utils.GetValue(clusterCert.Cluster.Server)
 	ca := utils.GetValue(clusterCert.Cluster.CertificateAuthorityData)
 	h.log.Infof("create secret [%s]", config.Name)
-	_, err = h.secrets.Create(
-		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      config.Name,
-				Namespace: config.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: ccev1.SchemeGroupVersion.String(),
-						Kind:       cceClusterConfigKind,
-						UID:        config.UID,
-						Name:       config.Name,
-					},
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.Name,
+			Namespace: config.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: ccev1.SchemeGroupVersion.String(),
+					Kind:       cceClusterConfigKind,
+					UID:        config.UID,
+					Name:       config.Name,
 				},
 			},
-			Data: map[string][]byte{
-				"endpoint": []byte(endpoint),
-				"ca":       []byte(ca),
-			},
 		},
-	)
+		Data: map[string][]byte{
+			"endpoint": []byte(endpoint),
+			"ca":       []byte(ca),
+		},
+	}
+	_, err = h.secrets.Get(config.Namespace, config.Name, metav1.GetOptions{})
+	if err != nil {
+		// Secret does not created yet
+		_, err = h.secrets.Create(secret)
+	} else {
+		// Secret already exists, update.
+		_, err = h.secrets.Update(secret)
+	}
+
 	return err
 }
 

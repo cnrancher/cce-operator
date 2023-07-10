@@ -75,7 +75,7 @@
         {
             "name": "nodepool-1", // 节点池名称，由用户输入
             "type": "vm", // 节点池类型：vm, ElasticBMS, pm (default: vm)
-            "nodeID": "NODE_ID-aaa-bbb-ccc", // 节点池 ID，仅查询时返回结果
+            "nodePoolID": "NODE_ID-aaa-bbb-ccc", // 节点池 ID，仅查询时返回结果
             "nodeTemplate": { // 该节点池的每个节点的配置模板
                 "flavor": "t6.large.2",  // 节点池规格
                 "availableZone": "cn-north-1a", // 可用区, 可为 random

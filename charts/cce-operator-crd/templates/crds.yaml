@@ -152,7 +152,7 @@ spec:
                     name:
                       nullable: true
                       type: string
-                    nodeID:
+                    nodePoolID:
                       nullable: true
                       type: string
                     nodeTemplate:
@@ -349,7 +349,7 @@ spec:
                     name:
                       nullable: true
                       type: string
-                    nodeID:
+                    nodePoolID:
                       nullable: true
                       type: string
                     nodeTemplate:
