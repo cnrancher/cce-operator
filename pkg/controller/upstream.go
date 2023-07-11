@@ -21,7 +21,6 @@ func BuildUpstreamClusterState(
 	}
 	spec := &ccev1.CCEClusterConfigSpec{
 		HuaweiCredentialSecret: "",
-		RegionID:               utils.GetValue(cluster.Spec.Az),
 		Imported:               false,
 		Name:                   cluster.Metadata.Name,
 		Labels:                 cluster.Metadata.Labels,
@@ -36,6 +35,7 @@ func BuildUpstreamClusterState(
 	if cluster.Spec.HostNetwork != nil {
 		spec.HostNetwork.VpcID = cluster.Spec.HostNetwork.Vpc
 		spec.HostNetwork.SubnetID = cluster.Spec.HostNetwork.Subnet
+		spec.HostNetwork.SecurityGroup = utils.GetValue(cluster.Spec.HostNetwork.SecurityGroup)
 	}
 	if cluster.Spec.ContainerNetwork != nil {
 		spec.ContainerNetwork.Mode = cluster.Spec.ContainerNetwork.Mode.Value()

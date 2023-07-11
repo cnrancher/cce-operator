@@ -96,8 +96,9 @@ func GetClusterRequestFromCCECCConfig(config *ccev1.CCEClusterConfig) *model.Cre
 			Description: &spec.Description,
 			Ipv6enable:  &spec.Ipv6Enable,
 			HostNetwork: &model.HostNetwork{
-				Vpc:    status.HostNetwork.VpcID,
-				Subnet: status.HostNetwork.SubnetID,
+				Vpc:           status.HostNetwork.VpcID,
+				Subnet:        status.HostNetwork.SubnetID,
+				SecurityGroup: &status.HostNetwork.SecurityGroup,
 			},
 			ContainerNetwork: &model.ContainerNetwork{
 				Mode: containerNetWorkMode,

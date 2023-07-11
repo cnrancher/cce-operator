@@ -1,11 +1,33 @@
 package controller
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
+	"github.com/cnrancher/cce-operator/pkg/huawei/cce"
+	"github.com/cnrancher/cce-operator/pkg/huawei/common"
+	"github.com/cnrancher/cce-operator/pkg/utils"
+	huawei_cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	"github.com/stretchr/testify/assert"
 )
+
+var (
+	client *huawei_cce.CceClient
+)
+
+func init() {
+	accessKey := os.Getenv("HUAWEI_ACCESS_KEY")
+	secretKey := os.Getenv("HUAWEI_SECRET_KEY")
+	projectID := os.Getenv("HUAWEI_PROJECT_ID")
+	if accessKey == "" || secretKey == "" || projectID == "" {
+		fmt.Println("skip test CCE")
+		return
+	}
+	auth := common.NewClientAuth(accessKey, secretKey, "cn-north-1", projectID)
+	client = cce.NewCCEClient(auth)
+}
 
 func Test_CompareNode(t *testing.T) {
 	a := ccev1.CCENodePool{}
@@ -83,4 +105,43 @@ func Test_CompareNode(t *testing.T) {
 	// 	BMSPeriodNum: 1,
 	// }
 	// assert.False(CompareNode(&a, &b))
+}
+
+func Test_BuildUpstreamClusterState(t *testing.T) {
+	if client == nil {
+		return
+	}
+	cluster, err := cce.GetCluster(client, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	nodepools, err := cce.GetClusterNodePools(client, "", false)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	state, err := BuildUpstreamClusterState(cluster, nodepools)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fmt.Printf("%v\n", utils.PrintObject(state))
+}
+
+func Test_BuildUpstreamNodePoolConfigs(t *testing.T) {
+	if client == nil {
+		return
+	}
+	res, err := cce.GetClusterNodePools(client, "", false)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	pools, err := BuildUpstreamNodePoolConfigs(res)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fmt.Printf("%v\n", utils.PrintObject(pools))
 }

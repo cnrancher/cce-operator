@@ -167,21 +167,31 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	if err != nil {
 		return config, err
 	}
-	switch *cluster.Status.Phase {
+	if cluster.Status == nil || cluster.Spec == nil {
+		return config, fmt.Errorf("cce.GetCluster returns invalid data")
+	}
+	switch utils.GetValue(cluster.Status.Phase) {
 	case cce.ClusterStatusDeleting,
 		cce.ClusterStatusResizing,
 		cce.ClusterStatusUpgrading:
 		h.log.Infof("waiting for cluster [%s] finish status %q",
-			config.Spec.Name, *cluster.Status.Phase)
+			config.Spec.Name, utils.GetValue(cluster.Status.Phase))
 		if config.Status.Phase != cceConfigUpdatingPhase {
-			config = config.DeepCopy()
-			config.Status.Phase = cceConfigUpdatingPhase
-			if config, err = h.cceCC.UpdateStatus(config); err != nil {
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.Phase = cceConfigUpdatingPhase
+			if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
 				return config, err
 			}
 		}
 		h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
 		return config, nil
+	}
+	if config.Status.AvailableZone != utils.GetValue(cluster.Spec.Az) {
+		configUpdate := config.DeepCopy()
+		configUpdate.Status.AvailableZone = utils.GetValue(cluster.Spec.Az)
+		if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
+			return config, err
+		}
 	}
 
 	nodes, err := cce.GetClusterNodes(h.driver.CCE, config.Status.ClusterID)
@@ -826,15 +836,36 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 	if err != nil {
 		return config, err
 	}
-	configUpdate := config.DeepCopy()
-	configUpdate.Status.ClusterID = config.Spec.ClusterID
-	configUpdate.Status.ClusterExternalIP = upstreamConfig.ExtendParam.ClusterExternalIP
-	configUpdate.Status.NodePools = upstreamConfig.NodePools
-	configUpdate.Status.Phase = cceConfigActivePhase
-	if err = h.createCASecret(configUpdate); err != nil {
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		configUpdate := config.DeepCopy()
+		configUpdate.Status.ClusterID = config.Spec.ClusterID
+		configUpdate.Status.ClusterExternalIP = upstreamConfig.ExtendParam.ClusterExternalIP
+		configUpdate.Status.NodePools = upstreamConfig.NodePools
+		config, err = h.cceCC.UpdateStatus(configUpdate)
+		return err
+	})
+
+	if err = h.createCASecret(config); err != nil {
 		return config, err
 	}
-	return h.cceCC.UpdateStatus(configUpdate)
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		configUpdate := config.DeepCopy()
+		configUpdate.Status.Phase = cceConfigActivePhase
+		config, err = h.cceCC.UpdateStatus(configUpdate)
+		return err
+	})
+
+	return config, nil
 }
 
 // createCASecret creates a secret containing a CA and endpoint for use in generating a kubeconfig file.
@@ -887,9 +918,6 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 	if err != nil {
 		// Secret does not created yet
 		_, err = h.secrets.Create(secret)
-	} else {
-		// Secret already exists, update.
-		_, err = h.secrets.Update(secret)
 	}
 
 	return err
