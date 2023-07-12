@@ -14,18 +14,20 @@ import (
 )
 
 func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
-	h.log = logrus.WithFields(logrus.Fields{
-		"cluster": config.Name,
-		"phase":   "remove",
-	})
 	if config.Spec.Imported {
-		h.log.Infof("cluster [%s] is imported, will not delete CCE cluster", config.Name)
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("cluster [%s] is imported, will not delete CCE cluster", config.Name)
 		return config, nil
 	}
 	if err := h.newDriver(h.secretsCache, &config.Spec); err != nil {
 		return config, fmt.Errorf("error creating new CCE services: %w", err)
 	}
-	h.log.Infof("start deleting cluster [%s] resources", config.Name)
+	logrus.WithFields(logrus.Fields{
+		"cluster": config.Name,
+		"phase":   "remove",
+	}).Infof("start deleting cluster [%s] resources", config.Name)
 
 	var (
 		refresh bool
@@ -61,7 +63,10 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 		}
 	}
 
-	h.log.Infof("finished clean-up resources of cluster [%s]", config.Name)
+	logrus.WithFields(logrus.Fields{
+		"cluster": config.Name,
+		"phase":   "remove",
+	}).Infof("finished clean-up resources of cluster [%s]", config.Name)
 
 	return config, nil
 }
@@ -80,7 +85,7 @@ func (h *Handler) deleteCCEClusterNodePools(
 			// Cluster was deleted and failed to query nodes.
 			return config, false, nil
 		}
-		return config, false, fmt.Errorf("failed to get cluster nodes: %v", err)
+		return config, false, err
 	}
 	if nodes.Items == nil {
 		return config, false, fmt.Errorf("cce.GetClusterNodes returns invalid value")
@@ -99,7 +104,10 @@ func (h *Handler) deleteCCEClusterNodePools(
 			// cce_model.GetNodeStatusPhaseEnum().ERROR,
 			cce_model.GetNodeStatusPhaseEnum().BUILD,
 			cce_model.GetNodeStatusPhaseEnum().DELETING:
-			h.log.Infof("waiting for node [%s] status: %v",
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("waiting for node [%s] status: %v",
 				utils.GetValue(node.Metadata.Name), node.Status.Phase.Value())
 			return config, true, nil
 		}
@@ -118,10 +126,12 @@ func (h *Handler) deleteCCEClusterNodePools(
 			continue
 		}
 		if _, err = cce.DeleteNodePool(h.driver.CCE, config.Status.ClusterID, *np.Metadata.Uid); err != nil {
-			return config, false, fmt.Errorf("error delete node pool [%s]: %w",
-				np.Metadata.Name, err)
+			return config, false, err
 		}
-		h.log.Infof("request to delete node pool [%s], ID [%s]",
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("request to delete node pool [%s], ID [%s]",
 			np.Metadata.Name, utils.GetValue(np.Metadata.Uid))
 		enqueueNode = true
 	}
@@ -148,7 +158,10 @@ func (h *Handler) deleteCCECluster(
 	cluster, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
 	if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 		// Cluster deleted, update status.
-		h.log.Infof("deleted cluster [%s]", config.Spec.Name)
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("deleted cluster [%s]", config.Spec.Name)
 		config = config.DeepCopy()
 		config.Status.ClusterID = ""
 		config, err = h.cceCC.UpdateStatus(config)
@@ -167,15 +180,21 @@ func (h *Handler) deleteCCECluster(
 		cce.ClusterStatusScalingDown,
 		cce.ClusterStatusScalingUp,
 		cce.ClusterStatusRollingBack:
-		h.log.Infof("waiting for cluster [%s] status: %s",
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("waiting for cluster [%s] status: %s",
 			config.Spec.Name, *cluster.Status.Phase)
 		return config, true, nil
 	}
 
 	if _, err = cce.DeleteCluster(h.driver.CCE, config.Status.ClusterID); err != nil {
-		return config, false, fmt.Errorf("failed to delete cluster: %w", err)
+		return config, false, err
 	}
-	h.log.Infof("requested to delete cluster [%s]", config.Spec.Name)
+	logrus.WithFields(logrus.Fields{
+		"cluster": config.Name,
+		"phase":   "remove",
+	}).Infof("requested to delete cluster [%s]", config.Spec.Name)
 
 	return config, true, nil
 }
@@ -194,7 +213,10 @@ func (h *Handler) deleteNetworkResources(
 			if err != nil {
 				return config, false, err
 			}
-			h.log.Infof("EIP [%s] deleted", eipID)
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("EIP [%s] deleted", eipID)
 		} else if err != nil {
 			return config, false, err
 		} else {
@@ -202,7 +224,10 @@ func (h *Handler) deleteNetworkResources(
 			if err != nil {
 				return config, false, err
 			}
-			h.log.Infof("request to delete EIP [%v]", eipID)
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("request to delete EIP [%v]", eipID)
 			return config, true, nil
 		}
 	}
@@ -233,15 +258,21 @@ func (h *Handler) deleteNetworkResources(
 			if err != nil {
 				return config, false, err
 			}
-			h.log.Infof("subnet [%s] deleted", subnetID)
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("subnet [%s] deleted", subnetID)
 		} else if err != nil {
-			return config, false, fmt.Errorf("failed to get subnet: %w", err)
+			return config, false, err
 		} else {
 			_, err := network.DeleteSubnet(h.driver.VPC, vpcID, subnetID)
 			if err != nil {
 				return config, false, err
 			}
-			h.log.Infof("request to delete subnet [%s]", subnetID)
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("request to delete subnet [%s]", subnetID)
 			return config, true, nil
 		}
 	}
@@ -249,7 +280,7 @@ func (h *Handler) deleteNetworkResources(
 	if vpcID != "" {
 		vpceps, err := network.GetVpcepServices(h.driver.VPCEP, "")
 		if err != nil {
-			return config, false, fmt.Errorf("failed to get VpcepSvc: %v", err)
+			return config, false, err
 		}
 		// Ensure VPC does not have associated VpcEndpointService (vpcepsvc).
 		var vpcepsvcID string
@@ -266,9 +297,12 @@ func (h *Handler) deleteNetworkResources(
 		if vpcepsvcID != "" {
 			_, err = network.DeleteVpcepService(h.driver.VPCEP, vpcepsvcID)
 			if err != nil {
-				return config, false, fmt.Errorf("failed to delete vpcep: %w", err)
+				return config, false, err
 			}
-			h.log.Infof("request to delete VpcEndpointService [%s]", vpcepsvcID)
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("request to delete VpcEndpointService [%s]", vpcepsvcID)
 			return config, true, nil
 		}
 
@@ -280,15 +314,21 @@ func (h *Handler) deleteNetworkResources(
 			if err != nil {
 				return config, false, err
 			}
-			h.log.Infof("vpc [%s] deleted", vpcID)
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("vpc [%s] deleted", vpcID)
 		} else if err != nil {
-			return config, false, fmt.Errorf("failed to get vpc: %w", err)
+			return config, false, err
 		} else {
 			_, err = network.DeleteVPC(h.driver.VPC, config.Status.HostNetwork.VpcID)
 			if err != nil {
-				return config, false, fmt.Errorf("failed to delete VPC: %w", err)
+				return config, false, err
 			}
-			h.log.Infof("request to delete vpc [%s]", vpcID)
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("request to delete vpc [%s]", vpcID)
 			return config, true, nil
 		}
 	}
