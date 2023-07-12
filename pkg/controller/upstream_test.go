@@ -35,7 +35,7 @@ func Test_CompareNode(t *testing.T) {
 	assert := assert.New(t)
 	assert.True(CompareNodePool(&a, &b))
 	a = ccev1.CCENodePool{
-		Name: "rancher-managed-node-abcde",
+		Name: "nodepool-example-1",
 		ID:   "abcde-12345",
 	}
 	a.NodeTemplate = ccev1.CCENodeTemplate{
@@ -63,7 +63,7 @@ func Test_CompareNode(t *testing.T) {
 	b = a
 	b.Name = ""
 	b.ID = ""
-	assert.True(CompareNodePool(&a, &b))
+	assert.False(CompareNodePool(&a, &b))
 	b.NodeTemplate.Flavor = "c3.large.2"
 	assert.False(CompareNodePool(&a, &b))
 	b = a
