@@ -195,7 +195,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	if err != nil {
 		return config, err
 	}
-	if nodePools.Items == nil {
+	if nodePools == nil || nodePools.Items == nil {
 		return config, fmt.Errorf("checkAndUpdate: failed to get cluster nodePools: Items is nil")
 	}
 	if len(*nodePools.Items) == 0 {
@@ -493,7 +493,6 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}).Infof("VPC ID not provided, will create VPC and subnet...")
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
-			"phase":   config.Status.Phase,
 		}).Infof("creating VPC...")
 		vpcRes, err := network.CreateVPC(
 			h.driver.VPC,
@@ -748,7 +747,7 @@ func (h *Handler) updateUpstreamClusterState(
 		configUpdate.Status.NodePools = upstreamSpec.NodePools
 		configUpdate.Status.HostNetwork = upstreamSpec.HostNetwork
 		configUpdate.Status.ContainerNetwork = upstreamSpec.ContainerNetwork
-		config, err = h.cceCC.UpdateStatus(config)
+		config, err = h.cceCC.UpdateStatus(configUpdate)
 		return err
 	})
 	if err != nil {
