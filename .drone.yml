@@ -41,6 +41,7 @@ steps:
         exclude:
           - refs/tags/*rc*
           - refs/tags/*alpha*
+          - refs/tags/*beta*
       event:
         - tag
   - name: github_binary_prerelease
@@ -61,6 +62,7 @@ steps:
         include:
           - refs/tags/*rc*
           - refs/tags/*alpha*
+          - refs/tags/*beta*
       event:
         - tag
   - name: docker-publish
@@ -136,6 +138,7 @@ steps:
         exclude:
           - refs/tags/*rc*
           - refs/tags/*alpha*
+          - refs/tags/*beta*
       event:
         - tag
   - name: github_binary_prerelease
@@ -156,6 +159,7 @@ steps:
         include:
           - refs/tags/*rc*
           - refs/tags/*alpha*
+          - refs/tags/*beta*
       event:
         - tag
   - name: docker-publish

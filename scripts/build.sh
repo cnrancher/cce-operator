@@ -6,7 +6,7 @@ cd $(dirname $0)/../
 WORKINGDIR=$(pwd)
 
 source ./scripts/version.sh
-echo "Version: ${VERSION}"
+echo "Build version: ${VERSION}"
 
 BUILD_FLAG=""
 if [[ -z "${DEBUG:-}" ]]; then
@@ -19,4 +19,6 @@ BUILD_FLAG="${BUILD_FLAG} -X 'github.com/cnrancher/cce-operator/pkg/utils.Versio
 
 mkdir -p bin && cd bin
 CGO_ENABLED=0 go build -ldflags "${BUILD_FLAG}" -o cce-operator ..
+echo "--------------------"
 ls -alh cce-operator
+echo "--------------------"

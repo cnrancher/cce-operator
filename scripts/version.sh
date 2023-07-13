@@ -27,14 +27,18 @@ if [[ -z "${OS:-}" ]]; then
 fi
 
 SUFFIX="-${OS}-${ARCH}"
-
 HELM_TAG=${TAG:-${VERSION}}
 HELM_VERSION=${HELM_TAG/v/}
 TAG=${TAG:-${VERSION}${SUFFIX}}
 REPO=${REPO:-cnrancher}
 
-if echo $TAG | grep -q dirty; then
+if [[ $TAG = *dirty* ]]; then
     TAG=dev
     HELM_TAG=dev
     HELM_VERSION=0.0.0-dev
+    DEBUG="true"
+fi
+
+if [[ ${VERSION} == *rc* ]] || [[ ${VERSION} == *alpha* ]] || [[ ${VERSION} == *beta* ]]; then
+    DEBUG="true"
 fi
