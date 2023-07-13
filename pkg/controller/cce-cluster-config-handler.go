@@ -104,13 +104,11 @@ func (h *Handler) recordError(
 			return config, err
 		}
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"cluster": config.Name,
-				"phase":   config.Status.Phase,
-			}).Warnf("%v", err)
+			logrus.Warnf("%v", err)
 			if huawei.IsHuaweiError(err) {
 				hwerr, _ := huawei.NewHuaweiError(err)
-				message = hwerr.ErrorMessage
+				hwerr.RequestID = ""
+				message = hwerr.String()
 			} else {
 				message = err.Error()
 			}
