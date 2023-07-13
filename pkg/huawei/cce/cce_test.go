@@ -51,7 +51,7 @@ func Test_GetCluster(t *testing.T) {
 		return
 	}
 	o, _ := json.MarshalIndent(cluster, "", "    ")
-	fmt.Printf("nodes.Items: \n%v\n", string(o))
+	fmt.Printf("cluster: \n%v\n", string(o))
 }
 
 func Test_GetClusterNodePools(t *testing.T) {
