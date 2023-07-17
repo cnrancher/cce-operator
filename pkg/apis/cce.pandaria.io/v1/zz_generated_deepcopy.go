@@ -64,7 +64,7 @@ func (in *CCEClusterConfig) DeepCopyInto(out *CCEClusterConfig) {
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.Spec.DeepCopyInto(&out.Spec)
-	in.Status.DeepCopyInto(&out.Status)
+	out.Status = in.Status
 	return
 }
 
@@ -167,13 +167,6 @@ func (in *CCEClusterConfigStatus) DeepCopyInto(out *CCEClusterConfigStatus) {
 	*out = *in
 	out.HostNetwork = in.HostNetwork
 	out.ContainerNetwork = in.ContainerNetwork
-	if in.NodePools != nil {
-		in, out := &in.NodePools, &out.NodePools
-		*out = make([]CCENodePool, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
 	return
 }
 

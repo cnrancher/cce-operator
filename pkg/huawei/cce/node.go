@@ -2,10 +2,15 @@ package cce
 
 import (
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
+	"github.com/cnrancher/cce-operator/pkg/huawei/common"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	NodePoolIDAnnotationKey = "kubernetes.io/node-pool.id"
 )
 
 func CreateNodePool(
@@ -74,6 +79,18 @@ func GetNodePool(
 	if err != nil {
 		logrus.Debugf("ShowNodePool failed: clusterID [%s], nodePoolID [%s]",
 			clusterID, npID)
+	}
+	return res, err
+}
+
+func UpdateNodePool(
+	client *cce.CceClient, clusterID string, nodePool *ccev1.CCENodePool,
+) (*model.UpdateNodePoolResponse, error) {
+	req := common.GetUpdateNodePoolRequest(clusterID, nodePool)
+	res, err := client.UpdateNodePool(req)
+	if err != nil {
+		logrus.Debugf("UpdateNodePool failed: %v",
+			utils.PrintObject(req))
 	}
 	return res, err
 }

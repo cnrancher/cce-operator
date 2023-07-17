@@ -1,6 +1,6 @@
 # CCE Operator Parameter
 
-创建集群的参数：
+## 创建集群
 
 ````json
 {
@@ -21,7 +21,7 @@
                               // small (最大 50 节点), medium (200 节点), large (1k 节点), xlarge (2k 节点)
     "version": "v1.23", // v1.21, v1.23, v1.25
     "description": "example description", // 集群描述
-    "ipv6Enable": false, // 不启用 IPv6，保留参数，永远为 False
+    "ipv6Enable": false, // 保留参数，永远为 False
     "hostNetwork": {
         "vpcID": "VPC-ID", // VPCID，若为空字符串，Operator 将新建一个 VPC
         "subnetID": "SUBNET-ID", // SubnetID，若为空字符串，Operator 将新建一个 Subnet
@@ -91,18 +91,18 @@
                         "type": "SSD"
                     }
                 ],
-                "publicIP": { // 节点公网IP配置
-                    "count": 1,
-                    "eip": {
-                        "ipType": "5_bgp",
-                        "bandwidth": {
-                            "chargeMode": "traffic",
-                            "size": 1,
-                            "shareType": "PER"
-                        }
-                    }
+                "publicIP": { // 节点公网IP配置 （保留字段，节点池不支持配置节点公网IP）
+                //     "count": 1,
+                //     "eip": {
+                //         "ipType": "5_bgp",
+                //         "bandwidth": {
+                //             "chargeMode": "traffic",
+                //             "size": 1,
+                //             "shareType": "PER"
+                //         }
+                //     }
                 },
-                "count": 1, // 批量创建节点的数量，不能为 0，永远为 1
+                "count": 1, // 批量创建节点的数量，永远为 1
                 "billingMode": 0, // 节点计费模式
                 "runtime": "containerd", // 容器运行时
                 "extendParam": { // 节点扩展参数
@@ -111,10 +111,10 @@
                     "isAutoRenew": "false"
                 }
             },
-            "initialNodeCount": 1, // 节点池初始化节点个数
+            "initialNodeCount": 1, // 节点池中节点的数量
             "autoscaling": {
-                "enable": false, // 是否开启自动扩缩容
-                "minNodeCount": 1, // 最小能缩容的节点个数
+                "enable": false, // 是否开启自动扩缩容（若启用 autoscaling，需要在华为云控制台手动安装 autoscaler 插件）
+                "minNodeCount": 0, // 最小能缩容的节点个数
                 "maxNodeCount": 1, // 最大能扩容的节点个数
                 "scaleDownCooldownTime": 0, // 节点保留时间，单位为分钟
                 "priority": 0 // 节点池权重，数值越大节点池优先级越高
@@ -129,9 +129,7 @@
 }
 ````
 
-----
-
-导入集群的参数：
+## 导入集群
 
 ```json
 {
@@ -142,3 +140,34 @@
     "regionID": "cn-north-1"
 }
 ```
+
+## 编辑已创建的集群
+
+````json
+{
+    "name": "example-update", // 集群名称
+    "huaweiCredentialSecret": "cattle-global-data:cc-xxxxx", // 更新云凭证
+    "description": "", // 更新集群描述
+    // "version": "v1.25" // 集群升级（暂不支持）
+    "hostNetwork": {
+        "vpcID": "VPC-ID", // VPC ID
+        "subnetID": "SUBNET-ID", // SubnetID
+        "securityGroup": "SECURITY-GROUP-ID" // 安全组
+    },
+    "nodePools": [
+        {
+            "name": "nodepool-1", // 节点池名称，可编辑
+            "nodePoolID": "NODE_ID-aaa-bbb-ccc", // 节点池 ID（若创建新的节点池，此字段留空，若修改已有节点池，需要提供此参数）
+            // "nodeTemplate": {}, // 节点模板在创建节点池后不支持修改
+            "initialNodeCount": 1, // 节点池中节点的数量，可编辑
+            "autoscaling": {
+                "enable": false, // 是否开启自动扩缩容（若启用 autoscaling，需要在华为云控制台手动安装 autoscaler 插件）
+                "minNodeCount": 0, // 最小能缩容的节点个数
+                "maxNodeCount": 1, // 最大能扩容的节点个数
+                "scaleDownCooldownTime": 0, // 节点保留时间，单位为分钟
+                "priority": 0 // 节点池权重
+            },
+        }
+    ]
+}
+````

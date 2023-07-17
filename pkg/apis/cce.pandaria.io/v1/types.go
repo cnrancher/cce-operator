@@ -63,13 +63,13 @@ type CCEClusterConfigStatus struct {
 	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
 
-	AvailableZone       string              `json:"availableZone"` // master 节点区域
-	ClusterID           string              `json:"clusterID"`
-	HostNetwork         CCEHostNetwork      `json:"hostNetwork"`
-	ContainerNetwork    CCEContainerNetwork `json:"containerNetwork"`
-	ClusterExternalIP   string              `json:"clusterExternalIP"`   // 集群使用的公网 IP 地址
-	ClusterExternalIPID string              `json:"clusterExternalIPID"` // 由 Operator 创建的公网 IP ID
-	NodePools           []CCENodePool       `json:"nodePools,omitempty"`
+	AvailableZone        string              `json:"availableZone"` // master 节点区域
+	ClusterID            string              `json:"clusterID"`
+	HostNetwork          CCEHostNetwork      `json:"hostNetwork"`
+	ContainerNetwork     CCEContainerNetwork `json:"containerNetwork"`
+	ClusterExternalIP    string              `json:"clusterExternalIP"`    // 集群使用的公网 IP 地址
+	ClusterExternalIPID  string              `json:"clusterExternalIPID"`  // 由 Operator 创建的公网 IP ID
+	UpgradeClusterTaskID string              `json:"upgradeClusterTaskID"` // 集群升级任务 ID
 }
 
 type CCEHostNetwork struct {

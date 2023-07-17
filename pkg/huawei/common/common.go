@@ -29,7 +29,7 @@ func NewClientAuth(ak, sk, region, projectID string) *ClientAuth {
 	}
 }
 
-func GetClusterRequestFromCCECCConfig(config *ccev1.CCEClusterConfig) *model.CreateClusterRequest {
+func GetCreateClusterRequest(config *ccev1.CCEClusterConfig) *model.CreateClusterRequest {
 	spec := &config.Spec
 	status := &config.Status
 	var containerNetWorkMode model.ContainerNetworkMode
@@ -136,6 +136,81 @@ func GetClusterRequestFromCCECCConfig(config *ccev1.CCEClusterConfig) *model.Cre
 	}
 
 	return request
+}
+
+func GetUpdateClusterRequest(config *ccev1.CCEClusterConfig) *model.UpdateClusterRequest {
+	req := &model.UpdateClusterRequest{
+		ClusterId: config.Status.ClusterID,
+		Body: &model.ClusterInformation{
+			Metadata: &model.ClusterMetadataForUpdate{
+				Alias: &config.Spec.Name, // operator does not support update cluster name
+			},
+			Spec: &model.ClusterInformationSpec{
+				Description: &config.Spec.Description,
+				EniNetwork: &model.EniNetworkUpdate{
+					Subnets: nil,
+				},
+				HostNetwork: &model.ClusterInformationSpecHostNetwork{
+					SecurityGroup: &config.Status.HostNetwork.SecurityGroup,
+				},
+			},
+		},
+	}
+
+	return req
+}
+
+func GetUpgradeClusterRequest(config *ccev1.CCEClusterConfig) *model.UpgradeClusterRequest {
+	req := &model.UpgradeClusterRequest{
+		ClusterId: config.Status.ClusterID,
+		Body: &model.UpgradeClusterRequestBody{
+			Metadata: &model.UpgradeClusterRequestMetadata{
+				ApiVersion: "v3",
+				Kind:       "UpgradeTask",
+			},
+			Spec: &model.UpgradeSpec{
+				ClusterUpgradeAction: &model.ClusterUpgradeAction{
+					Addons:        nil,
+					NodeOrder:     nil,
+					NodePoolOrder: nil,
+					Strategy: &model.UpgradeStrategy{
+						Type: "inPlaceRollingUpdate",
+						InPlaceRollingUpdate: &model.InPlaceRollingUpdate{
+							UserDefinedStep: utils.GetPtr(int32(20)),
+						},
+					},
+					TargetVersion: config.Spec.Version,
+				},
+			},
+		},
+	}
+	return req
+}
+
+func GetUpdateNodePoolRequest(
+	clusterID string, nodePool *ccev1.CCENodePool,
+) *model.UpdateNodePoolRequest {
+	req := &model.UpdateNodePoolRequest{
+		ClusterId:  clusterID,
+		NodepoolId: nodePool.ID,
+		Body: &model.NodePoolUpdate{
+			Metadata: &model.NodePoolMetadataUpdate{
+				Name: nodePool.Name,
+			},
+			Spec: &model.NodePoolSpecUpdate{
+				NodeTemplate:     &model.NodeSpecUpdate{},
+				InitialNodeCount: nodePool.InitialNodeCount,
+				Autoscaling: &model.NodePoolNodeAutoscaling{
+					Enable:                &nodePool.Autoscaling.Enable,
+					MinNodeCount:          &nodePool.Autoscaling.MinNodeCount,
+					MaxNodeCount:          &nodePool.Autoscaling.MaxNodeCount,
+					ScaleDownCooldownTime: &nodePool.Autoscaling.ScaleDownCooldownTime,
+					Priority:              &nodePool.Autoscaling.Priority,
+				},
+			},
+		},
+	}
+	return req
 }
 
 // GenResourceName generates the name of resource.

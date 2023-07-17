@@ -1,8 +1,10 @@
 # cnrancher/cce-operator
 
-Kubernetes controller for managing Huawei Cloud Container Engine (CCE) in Rancher.
+Kubernetes controller for managing [Huawei Cloud Container Engine](https://www.huaweicloud.com/product/cce.html) (CCE) in Rancher.
 
 ## Usage
+
+You can build and debug `cce-operator` outside of Rancher by following these steps:
 
 1. Setup a kubernetes cluster and configure the `KUBECONFIG` file:
 
@@ -33,7 +35,8 @@ Kubernetes controller for managing Huawei Cloud Container Engine (CCE) in Ranche
 1. Build the operator executable file:
 
     ```console
-    $ make generate
+    $ git clone https://github.com/cnrancher/cce-operator.git && cd cce-operator
+    $ go generate
     $ go build .
     ```
 
@@ -57,7 +60,7 @@ Kubernetes controller for managing Huawei Cloud Container Engine (CCE) in Ranche
     $ kubectl apply -f ./examples/create-example.yaml
     ```
 
-## License
+## LICENSE
 
 Copyright 2023 [Rancher Labs, Inc](https://rancher.com).
 

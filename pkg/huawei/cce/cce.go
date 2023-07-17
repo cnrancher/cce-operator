@@ -41,7 +41,7 @@ func NewCCEClient(auth *common.ClientAuth) *cce.CceClient {
 func CreateCluster(
 	client *cce.CceClient, config *ccev1.CCEClusterConfig,
 ) (*model.CreateClusterResponse, error) {
-	req := common.GetClusterRequestFromCCECCConfig(config)
+	req := common.GetCreateClusterRequest(config)
 	res, err := client.CreateCluster(req)
 	if err != nil {
 		logrus.Debugf("CreateCluster failed: %v", utils.PrintObject(req))
@@ -63,6 +63,42 @@ func ListClusters(client *cce.CceClient) (*model.ListClustersResponse, error) {
 	res, err := client.ListClusters(&model.ListClustersRequest{})
 	if err != nil {
 		logrus.Debugf("ListClusters failed")
+	}
+	return res, err
+}
+
+func UpdateCluster(
+	client *cce.CceClient, config *ccev1.CCEClusterConfig,
+) (*model.UpdateClusterResponse, error) {
+	req := common.GetUpdateClusterRequest(config)
+	res, err := client.UpdateCluster(req)
+	if err != nil {
+		logrus.Debugf("UpdateCluster failed: %v", utils.PrintObject(req))
+	}
+	return res, err
+}
+
+func UpgradeCluster(
+	client *cce.CceClient, config *ccev1.CCEClusterConfig,
+) (*model.UpgradeClusterResponse, error) {
+	req := common.GetUpgradeClusterRequest(config)
+	res, err := client.UpgradeCluster(req)
+	if err != nil {
+		logrus.Debugf("UpgradeCluster failed: %v", utils.PrintObject(req))
+	}
+	return res, err
+}
+
+func ShowUpgradeClusterTask(
+	client *cce.CceClient, clusterID string, taskID string,
+) (*model.ShowUpgradeClusterTaskResponse, error) {
+	req := &model.ShowUpgradeClusterTaskRequest{
+		ClusterId: clusterID,
+		TaskId:    taskID,
+	}
+	res, err := client.ShowUpgradeClusterTask(req)
+	if err != nil {
+		logrus.Debugf("ShowUpgradeClusterTask failed: %v", utils.PrintObject(req))
 	}
 	return res, err
 }

@@ -144,114 +144,6 @@ func (h *Handler) recordError(
 	}
 }
 
-func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
-	if err := validateUpdate(config); err != nil {
-		// validation failed, will be considered a failing update until resolved
-		config = config.DeepCopy()
-		config.Status.Phase = cceConfigUpdatingPhase
-		var updateErr error
-		config, updateErr = h.cceCC.UpdateStatus(config)
-		if updateErr != nil {
-			return config, updateErr
-		}
-		return config, err
-	}
-	cluster, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
-	if err != nil {
-		return config, err
-	}
-	if cluster.Status == nil || cluster.Spec == nil {
-		return config, fmt.Errorf("cce.GetCluster returns invalid data")
-	}
-	switch utils.GetValue(cluster.Status.Phase) {
-	case cce.ClusterStatusDeleting,
-		cce.ClusterStatusResizing,
-		cce.ClusterStatusUpgrading:
-		logrus.WithFields(logrus.Fields{
-			"cluster": config.Name,
-			"phase":   config.Status.Phase,
-		}).Infof("waiting for cluster [%s] finish status %q",
-			config.Spec.Name, utils.GetValue(cluster.Status.Phase))
-		if config.Status.Phase != cceConfigUpdatingPhase {
-			configUpdate := config.DeepCopy()
-			configUpdate.Status.Phase = cceConfigUpdatingPhase
-			if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
-				return config, err
-			}
-		}
-		h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
-		return config, nil
-	}
-	if config.Status.AvailableZone != utils.GetValue(cluster.Spec.Az) {
-		configUpdate := config.DeepCopy()
-		configUpdate.Status.AvailableZone = utils.GetValue(cluster.Spec.Az)
-		if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
-			return config, err
-		}
-	}
-
-	// Get the created node pools and build upstream cluster state.
-	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Status.ClusterID, false)
-	if err != nil {
-		return config, err
-	}
-	if nodePools == nil || nodePools.Items == nil {
-		return config, fmt.Errorf("checkAndUpdate: failed to get cluster nodePools: Items is nil")
-	}
-	if len(*nodePools.Items) == 0 {
-		logrus.WithFields(logrus.Fields{
-			"cluster": config.Name,
-			"phase":   config.Status.Phase,
-		}).Infof("cluster [%s] does not have nodePool", config.Spec.Name)
-	}
-	for _, nodePool := range *nodePools.Items {
-		if nodePool.Status == nil {
-			continue
-		}
-		if nodePool.Status.Phase == nil {
-			continue
-		}
-		switch *nodePool.Status.Phase {
-		case cce_model.GetNodePoolStatusPhaseEnum().SYNCHRONIZED,
-			cce_model.GetNodePoolStatusPhaseEnum().SYNCHRONIZING,
-			cce_model.GetNodePoolStatusPhaseEnum().SOLD_OUT:
-			logrus.WithFields(logrus.Fields{
-				"cluster": config.Name,
-				"phase":   config.Status.Phase,
-			}).Infof("waiting for nodepool %q status: %q",
-				nodePool.Metadata.Name, nodePool.Status.Phase.Value())
-			if config.Status.Phase != cceConfigUpdatingPhase {
-				config = config.DeepCopy()
-				config.Status.Phase = cceConfigUpdatingPhase
-				if config, err = h.cceCC.UpdateStatus(config); err != nil {
-					return config, err
-				}
-			}
-			h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
-			return config, nil
-		}
-	}
-	upstreamSpec, err := BuildUpstreamClusterState(cluster, nodePools)
-	if err != nil {
-		return config, err
-	}
-
-	return h.updateUpstreamClusterState(upstreamSpec, config)
-}
-
-func validateUpdate(config *ccev1.CCEClusterConfig) error {
-	if config.Spec.Version != "" {
-		var err error
-		_, err = semver.NewVersion(config.Spec.Version + ".0")
-		if err != nil {
-			return fmt.Errorf("improper version format for cluster [%s]: %s, %v",
-				config.Spec.Name, config.Spec.Version, err)
-		}
-	}
-
-	return nil
-}
-
 func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
 	if err := h.validateCreate(config); err != nil {
 		return config, err
@@ -307,127 +199,6 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		"cluster": config.Name,
 	}).Infof("created cluster %q", config.Status.ClusterID)
 	return config, err
-}
-
-func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
-	// Check for existing cceclusterconfigs with the same display name
-	cceConfigs, err := h.cceCC.List(config.Namespace, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("cannot list cceclusterconfigs for display name check")
-	}
-	for _, c := range cceConfigs.Items {
-		if c.Spec.Name == config.Spec.Name && c.Name != config.Name {
-			return fmt.Errorf("cannot create cluster [%s] because an cceclusterconfig "+
-				"exists with the same name", config.Spec.Name)
-		}
-	}
-
-	if config.Spec.Imported {
-		cannotBeEmptyError := "field [%s] cannot be empty for non-import cluster [%s]"
-		if config.Spec.HuaweiCredentialSecret == "" {
-			return fmt.Errorf(cannotBeEmptyError, "huaweiCredentialSecret", config.Name)
-		}
-		if config.Spec.ClusterID == "" {
-			return fmt.Errorf(cannotBeEmptyError, "clusterID", config.Name)
-		}
-		_, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
-		if err != nil {
-			hwerr, _ := huawei.NewHuaweiError(err)
-			if hwerr.StatusCode == 404 {
-				return fmt.Errorf("failed to find cluster [%s]: %v",
-					config.Spec.ClusterID, hwerr.ErrorMessage)
-			}
-			return err
-		}
-		if config.Spec.RegionID == "" {
-			return fmt.Errorf(cannotBeEmptyError, "regionID", config.Name)
-		}
-		if config.Spec.Name == "" {
-			return fmt.Errorf(cannotBeEmptyError, "name", config.Name)
-		}
-	} else {
-		listClustersRes, err := cce.ListClusters(h.driver.CCE)
-		if err != nil {
-			return err
-		}
-		for _, cluster := range *listClustersRes.Items {
-			if config.Spec.Name == cluster.Metadata.Name {
-				return fmt.Errorf("cannot create cluster [%s] because a cluster"+
-					" in CCE exists with the same name", cluster.Metadata.Name)
-			}
-		}
-		cannotBeEmptyError := "field [%s] cannot be empty for non-import cluster [%s]"
-		if config.Spec.HuaweiCredentialSecret == "" {
-			return fmt.Errorf(cannotBeEmptyError, "huaweiCredentialSecret", config.Name)
-		}
-		if config.Spec.Name == "" {
-			return fmt.Errorf(cannotBeEmptyError, "name", config.Name)
-		}
-		if config.Spec.Type == "" {
-			return fmt.Errorf(cannotBeEmptyError, "type", config.Name)
-		}
-		if config.Spec.Flavor == "" {
-			return fmt.Errorf(cannotBeEmptyError, "flavor", config.Name)
-		}
-		if config.Spec.Version == "" {
-			return fmt.Errorf(cannotBeEmptyError, "version", config.Name)
-		}
-		if config.Spec.KubernetesSvcIPRange == "" {
-			return fmt.Errorf(cannotBeEmptyError, "kubernetesSvcIPRange", config.Name)
-		}
-		if config.Spec.ExtendParam.ClusterExternalIP != "" || config.Spec.PublicIP.CreateEIP {
-			if !config.Spec.PublicAccess {
-				return fmt.Errorf("'publicAccess' can not be 'false' when 'clusterExternalIP' provided " +
-					"or 'publicIP.createEIP' is true")
-			}
-		}
-		if config.Spec.PublicAccess {
-			if config.Spec.ExtendParam.ClusterExternalIP == "" && !config.Spec.PublicIP.CreateEIP {
-				return fmt.Errorf(
-					"should provide 'clusterExternalIP' or setup 'publicIP' if 'publicAccess' is true")
-			}
-		}
-		if len(config.Spec.NodePools) == 0 {
-			return fmt.Errorf(cannotBeEmptyError, "nodePools", config.Name)
-		}
-		for _, pool := range config.Spec.NodePools {
-			if pool.Name == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.name", config.Name)
-			}
-			if pool.InitialNodeCount == 0 {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.initialNodeCount", config.Name)
-			}
-			nt := pool.NodeTemplate
-			if nt.Flavor == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.flavor", config.Name)
-			}
-			if nt.AvailableZone == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.availableZone", config.Name)
-			}
-			if nt.SSHKey == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.sshKey", config.Name)
-			}
-			if nt.RootVolume.Size == 0 || nt.RootVolume.Type == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.rootVolume", config.Name)
-			}
-			if len(nt.DataVolumes) == 0 {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.dataVolumes", config.Name)
-			}
-			for _, dv := range nt.DataVolumes {
-				if dv.Size == 0 || dv.Type == "" {
-					return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.dataVolumes", config.Name)
-				}
-			}
-			if nt.OperatingSystem == "" {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.operatingSystem", config.Name)
-			}
-			if nt.Count == 0 {
-				return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.Count", config.Name)
-			}
-		}
-	}
-
-	return nil
 }
 
 func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
@@ -641,45 +412,6 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 	return config, err
 }
 
-func (h *Handler) newDriver(secretsCache wranglerv1.SecretCache, spec *ccev1.CCEClusterConfigSpec) error {
-	auth, err := NewHuaweiClientAuth(secretsCache, spec)
-	if err != nil {
-		return err
-	}
-	h.driver = *NewHuaweiDriver(auth)
-
-	return nil
-}
-
-func NewHuaweiClientAuth(
-	secretsCache wranglerv1.SecretCache, spec *ccev1.CCEClusterConfigSpec,
-) (*common.ClientAuth, error) {
-	region := spec.RegionID
-	if region == "" {
-		return nil, fmt.Errorf("regionID not provided")
-	}
-	ns, id := utils.Parse(spec.HuaweiCredentialSecret)
-	if spec.HuaweiCredentialSecret == "" {
-		return nil, fmt.Errorf("huawei credential secret not provided")
-	}
-
-	secret, err := secretsCache.Get(ns, id)
-	if err != nil {
-		return nil, fmt.Errorf("error getting secret %s/%s: %w", ns, id, err)
-	}
-
-	accessKeyBytes := secret.Data["huaweicredentialConfig-accessKey"]
-	secretKeyBytes := secret.Data["huaweicredentialConfig-secretKey"]
-	projectIDBytes := secret.Data["huaweicredentialConfig-projectID"]
-	if accessKeyBytes == nil || secretKeyBytes == nil || projectIDBytes == nil {
-		return nil, fmt.Errorf("invalid huawei cloud credential")
-	}
-	accessKey := string(accessKeyBytes)
-	secretKey := string(secretKeyBytes)
-	projectID := string(projectIDBytes)
-	return common.NewClientAuth(accessKey, secretKey, region, projectID), nil
-}
-
 func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
 	cluster, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
 	if err != nil {
@@ -722,6 +454,138 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 	return config, nil
 }
 
+func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
+	if err := validateUpdate(config); err != nil {
+		// validation failed, will be considered a failing update until resolved
+		config = config.DeepCopy()
+		config.Status.Phase = cceConfigUpdatingPhase
+		var updateErr error
+		config, updateErr = h.cceCC.UpdateStatus(config)
+		if updateErr != nil {
+			return config, updateErr
+		}
+		return config, err
+	}
+
+	// Check cluster upgrade status.
+	if config.Status.UpgradeClusterTaskID != "" {
+		res, err := cce.ShowUpgradeClusterTask(h.driver.CCE, config.Status.ClusterID, config.Status.UpgradeClusterTaskID)
+		if err != nil {
+			hwerr, _ := huawei.NewHuaweiError(err)
+			if hwerr.StatusCode == 404 {
+				config = config.DeepCopy()
+				config.Status.UpgradeClusterTaskID = ""
+				return h.cceCC.UpdateStatus(config)
+			} else {
+				return config, err
+			}
+		}
+		if res != nil && res.Spec != nil && res.Status != nil {
+			switch utils.GetValue(res.Status.Phase) {
+			case "Success", "":
+				logrus.WithFields(logrus.Fields{
+					"cluster": config.Name,
+					"phase":   config.Status.Phase,
+				}).Infof("cluster [%s] finished upgrade",
+					config.Spec.Name)
+				config = config.DeepCopy()
+				config.Status.UpgradeClusterTaskID = ""
+				return h.cceCC.UpdateStatus(config)
+			default:
+				logrus.WithFields(logrus.Fields{
+					"cluster": config.Name,
+					"phase":   config.Status.Phase,
+				}).Infof("waiting for cluster [%s] upgrade task status %q",
+					config.Spec.Name, utils.GetValue(res.Status.Phase))
+			}
+			h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
+			return config, nil
+		}
+	}
+
+	// Check cluster status.
+	cluster, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
+	if err != nil {
+		return config, err
+	}
+	if cluster.Status == nil || cluster.Spec == nil {
+		return config, fmt.Errorf("cce.GetCluster returns invalid data")
+	}
+	switch utils.GetValue(cluster.Status.Phase) {
+	case cce.ClusterStatusDeleting,
+		cce.ClusterStatusResizing,
+		cce.ClusterStatusUpgrading:
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Infof("waiting for cluster [%s] finish status %q",
+			config.Spec.Name, utils.GetValue(cluster.Status.Phase))
+		if config.Status.Phase != cceConfigUpdatingPhase {
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.Phase = cceConfigUpdatingPhase
+			if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
+				return config, err
+			}
+		}
+		h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
+		return config, nil
+	}
+	if config.Status.AvailableZone != utils.GetValue(cluster.Spec.Az) {
+		configUpdate := config.DeepCopy()
+		configUpdate.Status.AvailableZone = utils.GetValue(cluster.Spec.Az)
+		if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
+			return config, err
+		}
+	}
+
+	// Get the created node pools and build upstream cluster state.
+	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Status.ClusterID, false)
+	if err != nil {
+		return config, err
+	}
+	if nodePools == nil || nodePools.Items == nil {
+		return config, fmt.Errorf("checkAndUpdate: failed to get cluster nodePools: Items is nil")
+	}
+	if len(*nodePools.Items) == 0 {
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Infof("cluster [%s] does not have nodePool", config.Spec.Name)
+	}
+	for _, np := range *nodePools.Items {
+		if np.Status == nil || np.Status.Phase == nil || np.Metadata == nil || np.Spec == nil {
+			continue
+		}
+		switch *np.Status.Phase {
+		case cce_model.GetNodePoolStatusPhaseEnum().SYNCHRONIZED,
+			cce_model.GetNodePoolStatusPhaseEnum().SYNCHRONIZING,
+			cce_model.GetNodePoolStatusPhaseEnum().DELETING,
+			cce_model.GetNodePoolStatusPhaseEnum().ERROR,
+			cce_model.GetNodePoolStatusPhaseEnum().SOLD_OUT:
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   config.Status.Phase,
+			}).Infof("waiting for nodepool %q %q status: %q",
+				np.Metadata.Name, utils.GetValue(np.Metadata.Uid), np.Status.Phase.Value())
+			if config.Status.Phase != cceConfigUpdatingPhase {
+				config = config.DeepCopy()
+				config.Status.Phase = cceConfigUpdatingPhase
+				if config, err = h.cceCC.UpdateStatus(config); err != nil {
+					return config, err
+				}
+			}
+			h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
+			return config, nil
+		}
+	}
+	upstreamSpec, err := BuildUpstreamClusterState(cluster, nodePools)
+	if err != nil {
+		return config, err
+	}
+
+	return h.updateUpstreamClusterState(upstreamSpec, config)
+}
+
 // updateUpstreamClusterState compares the upstream spec with the config spec,
 // then updates the upstream CCE cluster to match the config spec.
 // Function often returns after a single update because once the cluster is
@@ -735,8 +599,6 @@ func (h *Handler) updateUpstreamClusterState(
 		"phase":   config.Status.Phase,
 	}).Debugf("start updateUpstreamClusterState")
 
-	// Add UpdateCluster here if needed.
-
 	var err error
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
@@ -744,7 +606,6 @@ func (h *Handler) updateUpstreamClusterState(
 			return err
 		}
 		configUpdate := config.DeepCopy()
-		configUpdate.Status.NodePools = upstreamSpec.NodePools
 		configUpdate.Status.HostNetwork = upstreamSpec.HostNetwork
 		configUpdate.Status.ContainerNetwork = upstreamSpec.ContainerNetwork
 		config, err = h.cceCC.UpdateStatus(configUpdate)
@@ -768,81 +629,145 @@ func (h *Handler) updateUpstreamClusterState(
 			}
 			return config, nil
 		}
-		// h.cceEnqueueAfter(config.Namespace, config.Name, 5*time.Minute)
 		return config, nil
 	}
 
-	// Update node pools.
-	// Compare nodePool configs between status & spec.
-	updateNode := false
-	for _, specNP := range config.Spec.NodePools {
-		// This for loop creates node pool exists in spec but not exists in status.
-		found := false
-		for _, statusNP := range config.Status.NodePools {
-			if CompareNodePool(&specNP, &statusNP) {
-				logrus.WithFields(logrus.Fields{
-					"cluster": config.Name,
-					"phase":   config.Status.Phase,
-				}).Debugf("found nodepool [%s] exists in cce cluster [%s]",
-					specNP.Name, config.Spec.Name)
-				found = true
-				break
-			}
+	// Check kubernetes version for upgrade cluster.
+	if upstreamSpec.Version != config.Spec.Version {
+		oldVer, err := semver.NewVersion(upstreamSpec.Version)
+		if err != nil {
+			return config, fmt.Errorf("invalid version %q: %w", upstreamSpec.Version, err)
 		}
-		if found {
-			continue
+		newVer, err := semver.NewVersion(config.Spec.Version)
+		if err != nil {
+			return config, fmt.Errorf("invalid version %q: %w", config.Spec.Version, err)
+		}
+		if oldVer.Compare(newVer) >= 0 {
+			return config, fmt.Errorf("unsupported to downgrade cluster from %q to %q",
+				upstreamSpec.Version, config.Spec.Version)
 		}
 
-		// Create node pool if not fount in upstream spec.
+		res, err := cce.UpgradeCluster(h.driver.CCE, config)
+		if err != nil {
+			return config, err
+		}
+		if res == nil || res.Uid == nil {
+			return config, fmt.Errorf("UpgradeCluster returns invalid data")
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Infof("start upgrade cluster [%s] from version %q to %q, task id [%s]",
+			config.Spec.Name, config.Spec.Version, upstreamSpec.Version, *res.Uid)
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.UpgradeClusterTaskID = *res.Uid
+			config, err = h.cceCC.UpdateStatus(configUpdate)
+			return err
+		})
+		if err != nil {
+			return config, err
+		}
+		return h.enqueueUpdate(config)
+	}
+
+	// Update cluster info.
+	if _, err = cce.UpdateCluster(h.driver.CCE, config); err != nil {
+		return config, err
+	}
+	// Update nodePool infos.
+	for _, np := range config.Spec.NodePools {
+		if np.ID == "" {
+			continue
+		}
+		_, err := cce.UpdateNodePool(h.driver.CCE, config.Status.ClusterID, &np)
+		if err != nil {
+			return config, err
+		}
+	}
+
+	// Compare nodePools between upstream & config spec.
+	enqueueNodePool := false
+	upstreamNodePools := make(map[string]bool, len(upstreamSpec.NodePools))
+	specNodePools := make(map[string]bool, len(config.Spec.NodePools))
+	for _, np := range upstreamSpec.NodePools {
+		upstreamNodePools[np.ID] = true
+	}
+	for i := 0; i < len(config.Spec.NodePools); i++ {
+		np := &config.Spec.NodePools[i]
+		if np.ID != "" {
+			specNodePools[np.ID] = true
+		}
+		// This for loop create nodePool exists in spec but not exists in upstream.
+		if upstreamNodePools[np.ID] {
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   config.Status.Phase,
+			}).Debugf("found nodePool [%s] ID [%s] exists in cce cluster [%s]",
+				np.Name, np.ID, config.Spec.Name)
+			continue
+		}
+		// Create nodePool if not fount in upstream spec.
 		res, err := cce.CreateNodePool(
-			h.driver.CCE, config.Status.ClusterID, &specNP)
+			h.driver.CCE, config.Status.ClusterID, np)
 		if err != nil {
 			return config, err
 		}
 		if res.Metadata == nil {
-			return config, fmt.Errorf("updateUpstreamClusterState: CreateNodePool returns invalid data")
+			return config, fmt.Errorf("createNodePool returns invalid data")
 		}
-		updateNode = true
+		// Update nodePool ID.
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Spec.NodePools[i].ID = utils.GetValue(res.Metadata.Uid)
+			config, err = h.cceCC.Update(configUpdate)
+			return err
+		})
+		if err != nil {
+			return config, err
+		}
+		enqueueNodePool = true
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
-		}).Infof("request to create node pool [%s], ID [%s]",
+		}).Infof("request to create nodePool [%s] ID [%s]",
 			res.Metadata.Name, utils.GetValue(res.Metadata.Uid))
 	}
-	for _, statusNP := range config.Status.NodePools {
-		// This for loop deletes node pools exists in status but not exists in spec.
-		found := false
-		for _, specNP := range config.Spec.NodePools {
-			if CompareNodePool(&statusNP, &specNP) {
-				found = true
-				break
-			}
-		}
-		if found {
+	for _, np := range upstreamSpec.NodePools {
+		// This for loop deletes nodePool exists in upstream but not exists in spec.
+		if specNodePools[np.ID] {
 			continue
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
-		}).Debugf("nodepool [%s] exists in upstream spec but not exists in spec, should delete",
-			statusNP.Name)
-		// Delete node pool
+		}).Debugf("nodePool [%s] ID [%s] exists in upstream but not exists in config spec",
+			np.Name, np.ID)
+		// Delete nodePool.
 		res, err := cce.DeleteNodePool(
-			h.driver.CCE, config.Status.ClusterID, statusNP.ID)
+			h.driver.CCE, config.Status.ClusterID, np.ID)
 		if err != nil {
 			return config, err
 		}
 		if res.Metadata == nil {
-			return config, fmt.Errorf("updateUpstreamClusterState: DeleteNodePool returns invalid data")
+			return config, fmt.Errorf("deleteNodePool returns invalid data")
 		}
-		updateNode = true
+		enqueueNodePool = true
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
-		}).Infof("request to delete node group [%s], ID [%s]",
-			statusNP.Name, statusNP.ID)
+		}).Infof("request to delete nodePool [%s] ID [%s]",
+			np.Name, np.ID)
 	}
-	if updateNode {
+	if enqueueNodePool {
 		return h.enqueueUpdate(config)
 	}
 
@@ -859,7 +784,6 @@ func (h *Handler) updateUpstreamClusterState(
 		}
 		return config, nil
 	}
-	// h.cceEnqueueAfter(config.Namespace, config.Name, 5*time.Minute)
 	return config, nil
 }
 
@@ -906,7 +830,6 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 		}
 		configUpdate := config.DeepCopy()
 		configUpdate.Status.ClusterID = config.Spec.ClusterID
-		configUpdate.Status.NodePools = upstreamConfig.NodePools
 		configUpdate.Status.HostNetwork = upstreamConfig.HostNetwork
 		configUpdate.Status.ContainerNetwork = upstreamConfig.ContainerNetwork
 		configUpdate.Status.ClusterExternalIP = clusterExternalIP
