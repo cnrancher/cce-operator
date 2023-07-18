@@ -16,7 +16,7 @@ GIT_TAG=${DRONE_TAG:-$(git tag -l --contains HEAD | head -n 1)}
 if [[ -z "$DIRTY" && -n "$GIT_TAG" ]]; then
     VERSION=$GIT_TAG
 else
-    VERSION="${COMMIT}${DIRTY}"
+    VERSION="v0.0.0-${COMMIT}${DIRTY}"
 fi
 
 if [[ -z "${ARCH:-}" ]]; then
@@ -27,18 +27,18 @@ if [[ -z "${OS:-}" ]]; then
 fi
 
 SUFFIX="-${OS}-${ARCH}"
-HELM_TAG=${TAG:-${VERSION}}
+HELM_TAG=${TAG:-"${VERSION}"}
 HELM_VERSION=${HELM_TAG/v/}
 TAG=${TAG:-${VERSION}${SUFFIX}}
 REPO=${REPO:-cnrancher}
 
-if [[ $TAG = *dirty* ]]; then
+if [[ $TAG = v0.0.0-* ]]; then
     TAG=dev
     HELM_TAG=dev
-    HELM_VERSION=0.0.0-dev
+    HELM_VERSION="0.0.0-dev"
     DEBUG="true"
 fi
 
-if [[ ${VERSION} == *rc* ]] || [[ ${VERSION} == *alpha* ]] || [[ ${VERSION} == *beta* ]]; then
+if [[ ${VERSION} = *rc* ]] || [[ ${VERSION} = *alpha* ]] || [[ ${VERSION} = *beta* ]]; then
     DEBUG="true"
 fi
