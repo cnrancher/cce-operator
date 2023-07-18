@@ -75,11 +75,11 @@ func (h *Handler) ensureCCEClusterDeletable(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
 	// Cluster was already deleted.
-	if config.Status.ClusterID == "" {
+	if config.Spec.ClusterID == "" {
 		return config, false, nil
 	}
 
-	nodes, err := cce.GetClusterNodes(h.driver.CCE, config.Status.ClusterID)
+	nodes, err := cce.GetClusterNodes(h.driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		// Cluster was deleted and failed to query nodes.
 		return config, false, err
@@ -115,12 +115,12 @@ func (h *Handler) ensureCCEClusterDeletable(
 func (h *Handler) deleteCCECluster(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
-	if config.Status.ClusterID == "" {
+	if config.Spec.ClusterID == "" {
 		// Cluster was already deleted.
 		return config, false, nil
 	}
 
-	cluster, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
+	cluster, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
 	if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 		// Cluster deleted, update status.
 		logrus.WithFields(logrus.Fields{
@@ -128,7 +128,7 @@ func (h *Handler) deleteCCECluster(
 			"phase":   "remove",
 		}).Infof("deleted cluster [%s]", config.Spec.Name)
 		config = config.DeepCopy()
-		config.Status.ClusterID = ""
+		config.Spec.ClusterID = ""
 		config, err = h.cceCC.UpdateStatus(config)
 		return config, false, err
 	} else if err != nil {
@@ -153,7 +153,7 @@ func (h *Handler) deleteCCECluster(
 		return config, true, nil
 	}
 
-	if _, err = cce.DeleteCluster(h.driver.CCE, config.Status.ClusterID); err != nil {
+	if _, err = cce.DeleteCluster(h.driver.CCE, config.Spec.ClusterID); err != nil {
 		return config, false, err
 	}
 	logrus.WithFields(logrus.Fields{

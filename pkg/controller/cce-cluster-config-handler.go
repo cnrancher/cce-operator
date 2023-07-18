@@ -161,13 +161,13 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 	}
 
 	// create cluster
-	if config.Status.ClusterID != "" {
-		_, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
+	if config.Spec.ClusterID != "" {
+		_, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
 		if err == nil {
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
-			}).Infof("cluster [%s] already created, switch to creating phase",
-				config.Status.ClusterID)
+			}).Infof("cluster [%s] ID [%s] already created, switch to creating phase",
+				config.Spec.Name, config.Spec.ClusterID)
 			config = config.DeepCopy()
 			config.Status.Phase = cceConfigCreatingPhase
 			return h.cceCC.UpdateStatus(config)
@@ -189,7 +189,16 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 			return err
 		}
 		config = config.DeepCopy()
-		config.Status.ClusterID = *cluster.Metadata.Uid
+		config.Spec.ClusterID = *cluster.Metadata.Uid
+		config, err = h.cceCC.Update(config)
+		return err
+	})
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		config = config.DeepCopy()
 		config.Status.Phase = cceConfigCreatingPhase
 		config.Status.FailureMessage = ""
 		config, err = h.cceCC.UpdateStatus(config)
@@ -197,7 +206,7 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 	})
 	logrus.WithFields(logrus.Fields{
 		"cluster": config.Name,
-	}).Infof("created cluster %q", config.Status.ClusterID)
+	}).Infof("created cluster %q", config.Spec.ClusterID)
 	return config, err
 }
 
@@ -413,7 +422,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 }
 
 func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
-	cluster, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
+	cluster, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		return config, fmt.Errorf("waitForCreationComplete: %w", err)
 	}
@@ -469,7 +478,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 
 	// Check cluster upgrade status.
 	if config.Status.UpgradeClusterTaskID != "" {
-		res, err := cce.ShowUpgradeClusterTask(h.driver.CCE, config.Status.ClusterID, config.Status.UpgradeClusterTaskID)
+		res, err := cce.ShowUpgradeClusterTask(h.driver.CCE, config.Spec.ClusterID, config.Status.UpgradeClusterTaskID)
 		if err != nil {
 			hwerr, _ := huawei.NewHuaweiError(err)
 			if hwerr.StatusCode == 404 {
@@ -504,7 +513,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	}
 
 	// Check cluster status.
-	cluster, err := cce.GetCluster(h.driver.CCE, config.Status.ClusterID)
+	cluster, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		return config, err
 	}
@@ -539,7 +548,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	}
 
 	// Get the created node pools and build upstream cluster state.
-	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Status.ClusterID, false)
+	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Spec.ClusterID, false)
 	if err != nil {
 		return config, err
 	}
@@ -651,21 +660,21 @@ func (h *Handler) updateUpstreamClusterState(
 		if err != nil {
 			return config, err
 		}
-		if res == nil || res.Uid == nil {
+		if res == nil || res.Metadata == nil {
 			return config, fmt.Errorf("UpgradeCluster returns invalid data")
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
 		}).Infof("start upgrade cluster [%s] from version %q to %q, task id [%s]",
-			config.Spec.Name, config.Spec.Version, upstreamSpec.Version, *res.Uid)
+			config.Spec.Name, config.Spec.Version, upstreamSpec.Version, utils.GetValue(res.Metadata.Uid))
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			configUpdate := config.DeepCopy()
-			configUpdate.Status.UpgradeClusterTaskID = *res.Uid
+			configUpdate.Status.UpgradeClusterTaskID = utils.GetValue(res.Metadata.Uid)
 			config, err = h.cceCC.UpdateStatus(configUpdate)
 			return err
 		})
@@ -684,7 +693,7 @@ func (h *Handler) updateUpstreamClusterState(
 		if np.ID == "" {
 			continue
 		}
-		_, err := cce.UpdateNodePool(h.driver.CCE, config.Status.ClusterID, &np)
+		_, err := cce.UpdateNodePool(h.driver.CCE, config.Spec.ClusterID, &np)
 		if err != nil {
 			return config, err
 		}
@@ -713,7 +722,7 @@ func (h *Handler) updateUpstreamClusterState(
 		}
 		// Create nodePool if not fount in upstream spec.
 		res, err := cce.CreateNodePool(
-			h.driver.CCE, config.Status.ClusterID, np)
+			h.driver.CCE, config.Spec.ClusterID, np)
 		if err != nil {
 			return config, err
 		}
@@ -753,7 +762,7 @@ func (h *Handler) updateUpstreamClusterState(
 			np.Name, np.ID)
 		// Delete nodePool.
 		res, err := cce.DeleteNodePool(
-			h.driver.CCE, config.Status.ClusterID, np.ID)
+			h.driver.CCE, config.Spec.ClusterID, np.ID)
 		if err != nil {
 			return config, err
 		}
@@ -829,7 +838,6 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 			return err
 		}
 		configUpdate := config.DeepCopy()
-		configUpdate.Status.ClusterID = config.Spec.ClusterID
 		configUpdate.Status.HostNetwork = upstreamConfig.HostNetwork
 		configUpdate.Status.ContainerNetwork = upstreamConfig.ContainerNetwork
 		configUpdate.Status.ClusterExternalIP = clusterExternalIP
@@ -858,7 +866,7 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 // createCASecret creates a secret containing a CA and endpoint for use in generating a kubeconfig file.
 func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 	// TODO: refresh cluster certs after 3 years
-	certs, err := cce.GetClusterCert(h.driver.CCE, config.Status.ClusterID, 365*3)
+	certs, err := cce.GetClusterCert(h.driver.CCE, config.Spec.ClusterID, 365*3)
 	if err != nil {
 		return err
 	}

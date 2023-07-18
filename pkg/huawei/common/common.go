@@ -140,7 +140,7 @@ func GetCreateClusterRequest(config *ccev1.CCEClusterConfig) *model.CreateCluste
 
 func GetUpdateClusterRequest(config *ccev1.CCEClusterConfig) *model.UpdateClusterRequest {
 	req := &model.UpdateClusterRequest{
-		ClusterId: config.Status.ClusterID,
+		ClusterId: config.Spec.ClusterID,
 		Body: &model.ClusterInformation{
 			Metadata: &model.ClusterMetadataForUpdate{
 				Alias: &config.Spec.Name, // operator does not support update cluster name
@@ -162,7 +162,7 @@ func GetUpdateClusterRequest(config *ccev1.CCEClusterConfig) *model.UpdateCluste
 
 func GetUpgradeClusterRequest(config *ccev1.CCEClusterConfig) *model.UpgradeClusterRequest {
 	req := &model.UpgradeClusterRequest{
-		ClusterId: config.Status.ClusterID,
+		ClusterId: config.Spec.ClusterID,
 		Body: &model.UpgradeClusterRequestBody{
 			Metadata: &model.UpgradeClusterRequestMetadata{
 				ApiVersion: "v3",

@@ -34,29 +34,29 @@ type CCEClusterConfig struct {
 // CCEClusterConfigSpec is the spec for a CCEClusterConfig resource
 type CCEClusterConfigSpec struct {
 	HuaweiCredentialSecret string                `json:"huaweiCredentialSecret"`
-	Category               string                `json:"category,omitempty"` // 集群类别: CCE
-	RegionID               string                `json:"regionID,omitempty"`
+	Category               string                `json:"category"` // 集群类别: CCE
+	RegionID               string                `json:"regionID"`
 	ClusterID              string                `json:"clusterID,omitempty"` // 仅导入集群时需要提供
-	Imported               bool                  `json:"imported,omitempty"`
-	Name                   string                `json:"name" norman:"noupdate"`
+	Imported               bool                  `json:"imported"`
+	Name                   string                `json:"name"`
 	Labels                 map[string]string     `json:"labels,omitempty"`
 	Type                   string                `json:"type"`
-	Flavor                 string                `json:"flavor" norman:"noupdate"`
-	Version                string                `json:"version" norman:"noupdate"`
-	Description            string                `json:"description,omitempty" norman:"noupdate"`
+	Flavor                 string                `json:"flavor"`
+	Version                string                `json:"version"`
+	Description            string                `json:"description"`
 	Ipv6Enable             bool                  `json:"ipv6Enable,omitempty"`
 	HostNetwork            CCEHostNetwork        `json:"hostNetwork"`
 	ContainerNetwork       CCEContainerNetwork   `json:"containerNetwork"`
 	EniNetwork             CCEEniNetwork         `json:"eniNetwork,omitempty"`
 	Authentication         CCEAuthentication     `json:"authentication,omitempty"`
-	BillingMode            int32                 `json:"clusterBillingMode,omitempty" norman:"noupdate"`
-	KubernetesSvcIPRange   string                `json:"kubernetesSvcIPRange,omitempty" norman:"noupdate"`
+	BillingMode            int32                 `json:"clusterBillingMode,omitempty"`
+	KubernetesSvcIPRange   string                `json:"kubernetesSvcIPRange,omitempty"`
 	Tags                   map[string]string     `json:"tags"`
 	KubeProxyMode          string                `json:"kubeProxyMode,omitempty"`
 	PublicAccess           bool                  `json:"publicAccess"` // 若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
 	PublicIP               CCEClusterPublicIP    `json:"publicIP"`     // PublicAccess 为 true 且未提供已有的 ClusterExternalIP 时，创建公网 IP
 	ExtendParam            CCEClusterExtendParam `json:"extendParam,omitempty"`
-	NodePools              []CCENodePool         `json:"nodePools,omitempty"`
+	NodePools              []CCENodePool         `json:"nodePools"`
 }
 
 type CCEClusterConfigStatus struct {
@@ -64,7 +64,6 @@ type CCEClusterConfigStatus struct {
 	FailureMessage string `json:"failureMessage"`
 
 	AvailableZone        string              `json:"availableZone"` // master 节点区域
-	ClusterID            string              `json:"clusterID"`
 	HostNetwork          CCEHostNetwork      `json:"hostNetwork"`
 	ContainerNetwork     CCEContainerNetwork `json:"containerNetwork"`
 	ClusterExternalIP    string              `json:"clusterExternalIP"`    // 集群使用的公网 IP 地址
@@ -100,9 +99,9 @@ type CCEAuthenticatingProxy struct {
 }
 
 type CCENodePool struct {
-	Name                 string                     `json:"name,omitempty"`       // 节点池名称
-	Type                 string                     `json:"type"`                 // 节点池类型：vm, ElasticBMS, pm (default: vm)
-	ID                   string                     `json:"nodePoolID,omitempty"` // 节点池 ID，仅用于查询
+	Name                 string                     `json:"name"`       // 节点池名称
+	Type                 string                     `json:"type"`       // 节点池类型：vm, ElasticBMS, pm (default: vm)
+	ID                   string                     `json:"nodePoolID"` // 节点池 ID，仅用于查询
 	NodeTemplate         CCENodeTemplate            `json:"nodeTemplate"`
 	InitialNodeCount     int32                      `json:"initialNodeCount"` // 节点池初始化节点个数。查询时为节点池目标节点数量。
 	Autoscaling          CCENodePoolNodeAutoscaling `json:"autoscaling"`

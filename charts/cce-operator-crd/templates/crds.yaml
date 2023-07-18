@@ -298,9 +298,6 @@ spec:
               clusterExternalIPID:
                 nullable: true
                 type: string
-              clusterID:
-                nullable: true
-                type: string
               containerNetwork:
                 properties:
                   cidr:

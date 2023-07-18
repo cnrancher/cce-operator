@@ -8,7 +8,7 @@ spec:
   regionID: "cn-north-1"
   clusterID: ""
   imported: false
-  name: "test-create-1"
+  name: "create-1"
   labels:
   type: "VirtualMachine"
   flavor: "cce.s1.small"
