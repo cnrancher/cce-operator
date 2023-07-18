@@ -30,6 +30,7 @@ func BuildUpstreamClusterState(
 		Version:                utils.GetValue(c.Spec.Version),
 		BillingMode:            utils.GetValue(c.Spec.BillingMode),
 		KubernetesSvcIPRange:   utils.GetValue(c.Spec.KubernetesSvcIpRange),
+		Tags:                   make(map[string]string),
 		KubeProxyMode:          c.Spec.KubeProxyMode.Value(),
 		PublicAccess:           false,
 	}
