@@ -129,7 +129,7 @@ func (h *Handler) deleteCCECluster(
 		}).Infof("deleted cluster [%s]", config.Spec.Name)
 		config = config.DeepCopy()
 		config.Spec.ClusterID = ""
-		config, err = h.cceCC.UpdateStatus(config)
+		config, err = h.cceCC.Update(config)
 		return config, false, err
 	} else if err != nil {
 		return config, false, err
