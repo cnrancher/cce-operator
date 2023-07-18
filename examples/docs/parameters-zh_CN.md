@@ -11,9 +11,8 @@
     "clusterID": "", // 创建集群时，此参数为空字符串，仅导入集群时需要此字段
     "imported": false, // 非导入集群
     "name": "cce-create-1", // CCE 集群名称，由用户填写
-    "labels": {
-        "key": "value", // Label
-        "key2": "value2"
+    "labels": { // 集群标签，由华为云自动生成，用于升级时前端识别集群支持的特性开关，用户指定无效。
+        "key": "value"
     },
     "type": "VirtualMachine", // 目前只支持 VirtualMachine：Master节点为x86架构服务器，后续支持 ARM64 鲲鹏
     "flavor": "cce.s1.small", // s1：单控制节点CCE集群。
