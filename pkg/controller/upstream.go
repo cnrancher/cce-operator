@@ -98,7 +98,6 @@ func BuildUpstreamNodePoolConfigs(
 				Flavor:          n.Spec.NodeTemplate.Flavor,
 				AvailableZone:   n.Spec.NodeTemplate.Az,
 				OperatingSystem: utils.GetValue(n.Spec.NodeTemplate.Os),
-				Count:           utils.GetValue(n.Spec.NodeTemplate.Count),
 				BillingMode:     utils.GetValue(n.Spec.NodeTemplate.BillingMode),
 			},
 			InitialNodeCount: utils.GetValue(n.Spec.InitialNodeCount),

@@ -162,8 +162,6 @@ spec:
                           type: string
                         billingMode:
                           type: integer
-                        count:
-                          type: integer
                         dataVolumes:
                           items:
                             properties:

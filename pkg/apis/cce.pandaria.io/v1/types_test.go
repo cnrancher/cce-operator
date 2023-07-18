@@ -111,7 +111,6 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 							PeriodNum:   1,
 							IsAutoRenew: "false",
 						},
-						Count: int32(1),
 					},
 					InitialNodeCount: 1,
 					Autoscaling: CCENodePoolNodeAutoscaling{

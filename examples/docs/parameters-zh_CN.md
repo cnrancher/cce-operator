@@ -102,7 +102,6 @@
                 //         }
                 //     }
                 },
-                "count": 1, // 批量创建节点的数量，永远为 1
                 "billingMode": 0, // 节点计费模式
                 "runtime": "containerd", // 容器运行时
                 "extendParam": { // 节点扩展参数

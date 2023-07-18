@@ -144,7 +144,7 @@ func getNodePoolRequirement(
 				},
 				DataVolumes: make([]model.Volume, 0, len(np.NodeTemplate.DataVolumes)),
 				PublicIP:    &model.NodePublicIp{},
-				Count:       &np.NodeTemplate.Count,
+				Count:       utils.GetPtr(int32(1)),
 				BillingMode: &np.NodeTemplate.BillingMode,
 				ExtendParam: &model.NodeExtendParam{
 					PeriodType:  &np.NodeTemplate.ExtendParam.PeriodType,
