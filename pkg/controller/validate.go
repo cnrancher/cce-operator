@@ -49,9 +49,9 @@ func validateNodePool(config *ccev1.CCEClusterConfig) error {
 		if nt.OperatingSystem == "" {
 			return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.operatingSystem", config.Name)
 		}
-		if nt.Count == 0 {
-			return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.Count", config.Name)
-		}
+		// if nt.Count == 0 {
+		// 	return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.Count", config.Name)
+		// }
 	}
 	return nil
 }
