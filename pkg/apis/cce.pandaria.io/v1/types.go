@@ -57,6 +57,11 @@ type CCEClusterConfigSpec struct {
 	PublicIP               CCEClusterPublicIP    `json:"publicIP"`     // PublicAccess 为 true 且未提供已有的 ClusterExternalIP 时，创建公网 IP
 	ExtendParam            CCEClusterExtendParam `json:"extendParam,omitempty"`
 	NodePools              []CCENodePool         `json:"nodePools"`
+
+	// CreatedNodePoolIDs is a temporary map to store nodePool ID by nodePool name
+	// and let cce-operator-controller (in Rancher) to know that some nodePools were
+	// created by cce-operator and update its ID to CCE cluster config in Rancher.
+	CreatedNodePoolIDs map[string]string `json:"createdNodePoolIDs"`
 }
 
 type CCEClusterConfigStatus struct {

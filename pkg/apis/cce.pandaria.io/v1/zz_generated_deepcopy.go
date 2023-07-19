@@ -149,6 +149,13 @@ func (in *CCEClusterConfigSpec) DeepCopyInto(out *CCEClusterConfigSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.CreatedNodePoolIDs != nil {
+		in, out := &in.CreatedNodePoolIDs, &out.CreatedNodePoolIDs
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

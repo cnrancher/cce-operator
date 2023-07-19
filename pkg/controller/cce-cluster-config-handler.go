@@ -177,7 +177,8 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 	if err != nil {
 		return config, err
 	}
-	if cluster.Metadata == nil || cluster.Metadata.Uid == nil {
+	if cluster.Metadata == nil || cluster.Metadata.Uid == nil ||
+		cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
 		return config, fmt.Errorf("cce.CreateCluster return invalid value")
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -187,6 +188,7 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		}
 		config = config.DeepCopy()
 		config.Spec.ClusterID = *cluster.Metadata.Uid
+		config.Spec.HostNetwork.SecurityGroup = utils.GetValue(cluster.Spec.HostNetwork.SecurityGroup)
 		config, err = h.cceCC.Update(config)
 		return err
 	})
@@ -564,6 +566,15 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		}
 	}
 
+	if len(config.Spec.CreatedNodePoolIDs) > 0 {
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Debugf("waiting for cce-operator-controller to update nodePool ID")
+		h.cceEnqueueAfter(config.Namespace, config.Name, 10*time.Second)
+		return config, nil
+	}
+
 	// Get the created node pools and build upstream cluster state.
 	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Spec.ClusterID, false)
 	if err != nil {
@@ -703,6 +714,7 @@ func (h *Handler) updateUpstreamClusterState(
 	for _, np := range upstreamSpec.NodePools {
 		upstreamNodePools[np.ID] = true
 	}
+	createdNodePoolIDs := map[string]string{}
 	for i := 0; i < len(config.Spec.NodePools); i++ {
 		np := &config.Spec.NodePools[i]
 		if np.ID != "" {
@@ -726,27 +738,30 @@ func (h *Handler) updateUpstreamClusterState(
 		if res.Metadata == nil {
 			return config, fmt.Errorf("createNodePool returns invalid data")
 		}
-		// Update nodePool ID.
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			configUpdate := config.DeepCopy()
-			configUpdate.Spec.NodePools[i].ID = utils.GetValue(res.Metadata.Uid)
-			config, err = h.cceCC.Update(configUpdate)
-			return err
-		})
-		if err != nil {
-			return config, err
-		}
 		enqueueNodePool = true
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
 		}).Infof("request to create nodePool [%s] ID [%s]",
 			res.Metadata.Name, utils.GetValue(res.Metadata.Uid))
+		createdNodePoolIDs[res.Metadata.Name] = utils.GetValue(res.Metadata.Uid)
 	}
+	if len(createdNodePoolIDs) != 0 {
+		// Update nodePool ID.
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Spec.CreatedNodePoolIDs = createdNodePoolIDs
+			config, err = h.cceCC.Update(configUpdate)
+			return err
+		}); err != nil {
+			return config, err
+		}
+	}
+
 	for _, np := range upstreamSpec.NodePools {
 		// This for loop deletes nodePool exists in upstream but not exists in spec.
 		if specNodePools[np.ID] {
