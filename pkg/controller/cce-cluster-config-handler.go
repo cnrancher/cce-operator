@@ -188,7 +188,6 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		}
 		config = config.DeepCopy()
 		config.Spec.ClusterID = *cluster.Metadata.Uid
-		config.Spec.HostNetwork.SecurityGroup = utils.GetValue(cluster.Spec.HostNetwork.SecurityGroup)
 		config, err = h.cceCC.Update(config)
 		return err
 	})
@@ -536,7 +535,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	if err != nil {
 		return config, err
 	}
-	if cluster.Status == nil || cluster.Spec == nil {
+	if cluster.Status == nil || cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
 		return config, fmt.Errorf("cce.GetCluster returns invalid data")
 	}
 	switch utils.GetValue(cluster.Status.Phase) {
@@ -570,7 +569,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
-		}).Debugf("waiting for cce-operator-controller to update nodePool ID")
+		}).Debugf("waiting for cce-operator-controller (Rancher) to update nodePool ID")
 		h.cceEnqueueAfter(config.Namespace, config.Name, 10*time.Second)
 		return config, nil
 	}
@@ -647,6 +646,16 @@ func (h *Handler) updateUpstreamClusterState(
 			return config, nil
 		}
 		return config, nil
+	}
+
+	// Update security group ID for created cluster
+	if config.Spec.HostNetwork.SecurityGroup != upstreamSpec.HostNetwork.SecurityGroup {
+		configUpdate := config.DeepCopy()
+		configUpdate.Spec.HostNetwork.SecurityGroup = upstreamSpec.HostNetwork.SecurityGroup
+		config, err = h.cceCC.Update(configUpdate)
+		if err != nil {
+			return config, err
+		}
 	}
 
 	// Check kubernetes version for upgrade cluster.
