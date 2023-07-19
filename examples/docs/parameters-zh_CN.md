@@ -2,9 +2,10 @@
 
 ## 创建集群
 
+创建集群时填写的大部分字段与华为云文档相对应：<https://support.huaweicloud.com/api-cce/cce_02_0236.html#section4>
+
 ````json
 {
-    // 创建集群时填写的参数字段与华为云文档相对应：https://support.huaweicloud.com/api-cce/cce_02_0236.html#section4
     "huaweiCredentialSecret": "cattle-global-data:cc-xxxxx", // secret ID
     "category": "CCE", // 保留选项，目前只支持 CCE，后续可以创建 Turbo
     "regionID": "cn-north-1", // CCE 集群的 Region
@@ -141,6 +142,8 @@
 
 ## 编辑已创建的集群
 
+以下字段为可编辑字段，用于更新集群 / 节点池信息。
+
 ````json
 {
     "name": "example-update", // 集群名称
@@ -150,9 +153,9 @@
     "hostNetwork": {
         "vpcID": "VPC-ID", // VPC ID
         "subnetID": "SUBNET-ID", // SubnetID
-        "securityGroup": "SECURITY-GROUP-ID" // 安全组
+        "securityGroup": "SECURITY-GROUP-ID" // Security Group
     },
-    "nodePools": [
+    "nodePools": [ // 可编辑节点池数组，用于增加/删除节点池
         {
             "name": "nodepool-1", // 节点池名称，可编辑
             "nodePoolID": "NODE_ID-aaa-bbb-ccc", // 节点池 ID（若创建新的节点池，此字段留空，若修改已有节点池，需要提供此参数）

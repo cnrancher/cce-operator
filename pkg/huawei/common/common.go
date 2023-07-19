@@ -33,7 +33,7 @@ func GetCreateClusterRequest(config *ccev1.CCEClusterConfig) *model.CreateCluste
 	spec := &config.Spec
 	status := &config.Status
 	var containerNetWorkMode model.ContainerNetworkMode
-	switch status.ContainerNetwork.Mode {
+	switch spec.ContainerNetwork.Mode {
 	case "overlay_l2":
 		containerNetWorkMode = model.GetContainerNetworkModeEnum().OVERLAY_L2
 	case "vpc-router":
@@ -96,13 +96,13 @@ func GetCreateClusterRequest(config *ccev1.CCEClusterConfig) *model.CreateCluste
 			Description: &spec.Description,
 			Ipv6enable:  &spec.Ipv6Enable,
 			HostNetwork: &model.HostNetwork{
-				Vpc:           status.HostNetwork.VpcID,
-				Subnet:        status.HostNetwork.SubnetID,
-				SecurityGroup: &status.HostNetwork.SecurityGroup,
+				Vpc:           spec.HostNetwork.VpcID,
+				Subnet:        spec.HostNetwork.SubnetID,
+				SecurityGroup: &spec.HostNetwork.SecurityGroup,
 			},
 			ContainerNetwork: &model.ContainerNetwork{
 				Mode: containerNetWorkMode,
-				Cidr: &status.ContainerNetwork.CIDR,
+				Cidr: &spec.ContainerNetwork.CIDR,
 			},
 			Authentication: &model.Authentication{
 				Mode: &spec.Authentication.Mode,
@@ -151,7 +151,7 @@ func GetUpdateClusterRequest(config *ccev1.CCEClusterConfig) *model.UpdateCluste
 					Subnets: nil,
 				},
 				HostNetwork: &model.ClusterInformationSpecHostNetwork{
-					SecurityGroup: &config.Status.HostNetwork.SecurityGroup,
+					SecurityGroup: &config.Spec.HostNetwork.SecurityGroup,
 				},
 			},
 		},

@@ -293,33 +293,18 @@ spec:
               clusterExternalIP:
                 nullable: true
                 type: string
-              clusterExternalIPID:
+              createdEIPID:
                 nullable: true
                 type: string
-              containerNetwork:
-                properties:
-                  cidr:
-                    nullable: true
-                    type: string
-                  mode:
-                    nullable: true
-                    type: string
-                type: object
+              createdSubnetID:
+                nullable: true
+                type: string
+              createdVpcID:
+                nullable: true
+                type: string
               failureMessage:
                 nullable: true
                 type: string
-              hostNetwork:
-                properties:
-                  securityGroup:
-                    nullable: true
-                    type: string
-                  subnetID:
-                    nullable: true
-                    type: string
-                  vpcID:
-                    nullable: true
-                    type: string
-                type: object
               phase:
                 nullable: true
                 type: string

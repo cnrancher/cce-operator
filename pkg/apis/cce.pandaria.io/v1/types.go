@@ -63,12 +63,13 @@ type CCEClusterConfigStatus struct {
 	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
 
-	AvailableZone        string              `json:"availableZone"` // master 节点区域
-	HostNetwork          CCEHostNetwork      `json:"hostNetwork"`
-	ContainerNetwork     CCEContainerNetwork `json:"containerNetwork"`
-	ClusterExternalIP    string              `json:"clusterExternalIP"`    // 集群使用的公网 IP 地址
-	ClusterExternalIPID  string              `json:"clusterExternalIPID"`  // 由 Operator 创建的公网 IP ID
-	UpgradeClusterTaskID string              `json:"upgradeClusterTaskID"` // 集群升级任务 ID
+	ClusterExternalIP string `json:"clusterExternalIP"` // Public Endpoint
+	AvailableZone     string `json:"availableZone"`     // master node region
+
+	CreatedVpcID         string `json:"createdVpcID"`         // VPC created by operator
+	CreatedSubnetID      string `json:"createdSubnetID"`      // Subnet created by operator
+	CreatedEIPID         string `json:"createdEIPID"`         // EIP ID created by operator
+	UpgradeClusterTaskID string `json:"upgradeClusterTaskID"` // Upgrade cluster task ID
 }
 
 type CCEHostNetwork struct {

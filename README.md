@@ -1,8 +1,12 @@
-# cnrancher/cce-operator
+## cnrancher/cce-operator
+
+[![Build Status](https://drone-pandaria.cnrancher.com/api/badges/cnrancher/cce-operator/status.svg?ref=refs/heads/main)](https://drone-pandaria.cnrancher.com/cnrancher/cce-operator)
+[![Docker Pulls](https://img.shields.io/docker/pulls/cnrancher/cce-operator.svg)](https://store.docker.com/community/images/cnrancher/cce-operator)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cnrancher/cce-operator)](https://goreportcard.com/report/github.com/cnrancher/cce-operator)
 
 Kubernetes controller for managing [Huawei Cloud Container Engine](https://www.huaweicloud.com/product/cce.html) (CCE) in Rancher.
 
-## Usage
+### Usage
 
 You can build and debug `cce-operator` outside of Rancher by following these steps:
 
@@ -60,7 +64,11 @@ You can build and debug `cce-operator` outside of Rancher by following these ste
     $ kubectl apply -f ./examples/create-example.yaml
     ```
 
-## LICENSE
+### Examples
+
+You can find CRD definition examples and parameter documentation in the [examples/](./examples/) directory.
+
+### LICENSE
 
 Copyright 2023 [Rancher Labs, Inc](https://rancher.com).
 

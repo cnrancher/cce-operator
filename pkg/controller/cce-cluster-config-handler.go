@@ -173,9 +173,6 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 			return h.cceCC.UpdateStatus(config)
 		}
 	}
-	logrus.WithFields(logrus.Fields{
-		"cluster": config.Name,
-	}).Infof("creating cluster [%s]", config.Spec.Name)
 	cluster, err := cce.CreateCluster(h.driver.CCE, config)
 	if err != nil {
 		return config, err
@@ -206,30 +203,13 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 	})
 	logrus.WithFields(logrus.Fields{
 		"cluster": config.Name,
-	}).Infof("created cluster %q", config.Spec.ClusterID)
+	}).Infof("request to create cluster name [%s] ID [%s]",
+		config.Spec.Name, config.Spec.ClusterID)
 	return config, err
 }
 
 func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
 	var err error
-	if config.Status.ContainerNetwork.Mode == "" || config.Status.ContainerNetwork.CIDR == "" {
-		configUpdate := config.DeepCopy()
-		if config.Spec.ContainerNetwork.Mode != "" {
-			configUpdate.Status.ContainerNetwork.Mode = config.Spec.ContainerNetwork.Mode
-		} else {
-			configUpdate.Status.ContainerNetwork.Mode = network.DefaultContainerNetworkMode
-		}
-		if config.Spec.ContainerNetwork.CIDR != "" {
-			configUpdate.Status.ContainerNetwork.CIDR = config.Spec.ContainerNetwork.CIDR
-		} else {
-			configUpdate.Status.ContainerNetwork.CIDR = network.DefaultContainerNetworkCIDR
-		}
-		config, err = h.cceCC.UpdateStatus(configUpdate)
-		if err != nil {
-			return config, err
-		}
-	}
-
 	// Create EIP.
 	if config.Spec.PublicAccess && config.Spec.PublicIP.CreateEIP && config.Status.ClusterExternalIP == "" {
 		res, err := network.CreatePublicIP(h.driver.EIP, &config.Spec.PublicIP)
@@ -245,7 +225,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			utils.GetValue(res.Publicip.Alias), utils.GetValue(res.Publicip.PublicIpAddress))
 		configUpdate := config.DeepCopy()
 		configUpdate.Status.ClusterExternalIP = utils.GetValue(res.Publicip.PublicIpAddress)
-		configUpdate.Status.ClusterExternalIPID = utils.GetValue(res.Publicip.Id)
+		configUpdate.Status.CreatedEIPID = utils.GetValue(res.Publicip.Id)
 		config, err = h.cceCC.UpdateStatus(configUpdate)
 		if err != nil {
 			return config, err
@@ -262,7 +242,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 	}
 
 	// HostNetwork configured, skip.
-	if config.Status.HostNetwork.VpcID != "" && config.Status.HostNetwork.SubnetID != "" {
+	if config.Status.CreatedVpcID != "" && config.Status.CreatedSubnetID != "" {
 		return config, nil
 	}
 
@@ -270,10 +250,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 	if config.Spec.HostNetwork.VpcID == "" {
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
-		}).Infof("VPC ID not provided, will create VPC and subnet...")
-		logrus.WithFields(logrus.Fields{
-			"cluster": config.Name,
-		}).Infof("creating VPC...")
+		}).Infof("VPC ID not provided, will create VPC and subnet")
 		vpcRes, err := network.CreateVPC(
 			h.driver.VPC,
 			common.GenResourceName("vpc"),
@@ -282,9 +259,15 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if err != nil {
 			return config, err
 		}
+		if vpcRes.Vpc == nil {
+			return config, fmt.Errorf("network.CreateVPC returns invalid data")
+		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
-		}).Infof("querying DNS server of region [%s]", config.Spec.RegionID)
+		}).Infof("created VPC name [%s] ID [%s]", vpcRes.Vpc.Name, vpcRes.Vpc.Id)
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+		}).Infof("query DNS server of region [%s]", config.Spec.RegionID)
 		dnsServers, err := network.ListNameServers(h.driver.DNS, config.Spec.RegionID)
 		if err != nil {
 			return config, err
@@ -304,11 +287,8 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
-		}).Infof("found DNS server of region [%s] %v",
-			config.Spec.RegionID, dnsRecords)
-		logrus.WithFields(logrus.Fields{
-			"cluster": config.Name,
-		}).Infof("creating subnet...")
+		}).Infof("found DNS server of region [%s]: %s, %s",
+			config.Spec.RegionID, dnsRecords[0], dnsRecords[1])
 		subnetRes, err := network.CreateSubnet(
 			h.driver.VPC,
 			common.GenResourceName("subnet"),
@@ -319,28 +299,51 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if err != nil {
 			return config, err
 		}
-		// Update status.
-		configUpdate := config.DeepCopy()
-		configUpdate.Status.HostNetwork.VpcID = vpcRes.Vpc.Id
-		configUpdate.Status.HostNetwork.SubnetID = subnetRes.Subnet.Id
-		if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
-			return config, err
+		if subnetRes == nil || subnetRes.Subnet == nil {
+			return config, fmt.Errorf("network.CreateSubnet returns invalid data")
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
-		}).Infof("created VPC [%s] [%s]",
-			vpcRes.Vpc.Name, config.Status.HostNetwork.VpcID)
-		logrus.WithFields(logrus.Fields{
-			"cluster": config.Name,
-		}).Infof("created subnet [%s] [%s]",
-			subnetRes.Subnet.Name, config.Status.HostNetwork.SubnetID)
+		}).Infof("created subnet for VPC [%s]: name [%s] ID [%s]",
+			vpcRes.Vpc.Name, subnetRes.Subnet.Name, subnetRes.Subnet.Id)
+		// Update status.
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.CreatedVpcID = vpcRes.Vpc.Id
+			configUpdate.Status.CreatedSubnetID = subnetRes.Subnet.Id
+			config, err = h.cceCC.UpdateStatus(configUpdate)
+			return err
+		}); err != nil {
+			return config, err
+		}
+		// Update spec.
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Spec.HostNetwork.VpcID = vpcRes.Vpc.Id
+			configUpdate.Spec.HostNetwork.SubnetID = subnetRes.Subnet.Id
+			config, err = h.cceCC.Update(configUpdate)
+			return err
+		}); err != nil {
+			return config, err
+		}
 	} else if config.Spec.HostNetwork.SubnetID == "" {
 		// VPC ID provided but subnet ID not provided.
 		// Create a subnet based on the provided VPC.
 		// Ensure provided VPC exists first.
-		_, err = network.GetVPC(h.driver.VPC, config.Spec.HostNetwork.VpcID)
+		vpcRes, err := network.GetVPC(h.driver.VPC, config.Spec.HostNetwork.VpcID)
 		if err != nil {
 			return config, err
+		}
+		if vpcRes == nil || vpcRes.Vpc == nil {
+			return config, fmt.Errorf("network.GetVPC returns invalid data")
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
@@ -368,8 +371,8 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
-		}).Infof("found DNS server of region [%s] %v",
-			config.Spec.RegionID, dnsRecords)
+		}).Infof("found DNS server of region [%s]: %s, %s",
+			config.Spec.RegionID, dnsRecords[0], dnsRecords[1])
 		subnetRes, err := network.CreateSubnet(
 			h.driver.VPC,
 			common.GenResourceName("subnet"),
@@ -380,16 +383,39 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if err != nil {
 			return config, err
 		}
-		// Update status.
-		configUpdate := config.DeepCopy()
-		configUpdate.Status.HostNetwork.SubnetID = subnetRes.Subnet.Id
-		if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
-			return config, err
+		if subnetRes == nil || subnetRes.Subnet == nil {
+			return config, fmt.Errorf("network.CreateSubnet returns invalid data")
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
-		}).Infof("created subnet [%s] [%s]",
-			subnetRes.Subnet.Name, config.Status.HostNetwork.SubnetID)
+		}).Infof("created subnet for VPC [%s]: name [%s] ID [%s]",
+			vpcRes.Vpc.Name, subnetRes.Subnet.Name, subnetRes.Subnet.Id)
+		// Update status.
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.CreatedSubnetID = subnetRes.Subnet.Id
+			config, err = h.cceCC.UpdateStatus(configUpdate)
+			return err
+		}); err != nil {
+			return config, err
+		}
+		// Update spec.
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Spec.HostNetwork.SubnetID = subnetRes.Subnet.Id
+			config, err = h.cceCC.Update(configUpdate)
+			return err
+		}); err != nil {
+			return config, err
+		}
 	} else {
 		// Both VPC ID and subnet ID are provided.
 		// Ensure provided VPC and subnet exists.
@@ -402,16 +428,10 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			return config, err
 		}
 		// Update status.
-		configUpdate := config.DeepCopy()
-		configUpdate.Status.HostNetwork.VpcID = config.Spec.HostNetwork.VpcID
-		configUpdate.Status.HostNetwork.SubnetID = config.Spec.HostNetwork.SubnetID
-		if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
-			return config, err
-		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 		}).Infof("VPC [%s] and subnet [%s] are provided",
-			config.Status.HostNetwork.VpcID, config.Status.HostNetwork.SubnetID)
+			config.Spec.HostNetwork.VpcID, config.Spec.HostNetwork.SubnetID)
 	}
 
 	config, err = h.cceCC.UpdateStatus(config)
@@ -424,18 +444,15 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
 	cluster, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
 	if err != nil {
-		return config, fmt.Errorf("waitForCreationComplete: %w", err)
+		return config, err
 	}
-
 	if cluster.Status == nil || cluster.Metadata == nil || cluster.Spec == nil {
 		return config, fmt.Errorf("cce.GetCluster returns invalid value")
 	}
-
 	if *cluster.Status.Phase == cce.ClusterStatusUnavailable {
 		return config, fmt.Errorf("creation failed for cluster %q: %v",
 			cluster.Metadata.Name, utils.GetValue(cluster.Status.Reason))
 	}
-
 	if *cluster.Status.Phase == cce.ClusterStatusAvailable {
 		if err := h.createCASecret(config); err != nil {
 			return config, fmt.Errorf("createCASecret: %w", err)
@@ -443,7 +460,8 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
-		}).Infof("cluster [%s] created successfully", config.Name)
+		}).Infof("cluster [%s] ID [%s] created successfully",
+			config.Spec.Name, config.Spec.ClusterID)
 		config = config.DeepCopy()
 		config.Status.Phase = cceConfigUpdatingPhase
 		config, err = h.cceCC.UpdateStatus(config)
@@ -452,12 +470,11 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 		}
 		return config, nil
 	}
-
 	logrus.WithFields(logrus.Fields{
 		"cluster": config.Name,
 		"phase":   config.Status.Phase,
-	}).Infof("waiting for cluster [%s] status %q",
-		config.Spec.Name, *cluster.Status.Phase)
+	}).Infof("waiting for cluster [%s] status [%s]",
+		config.Spec.Name, utils.GetValue(cluster.Status.Phase))
 	h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
 
 	return config, nil
@@ -504,7 +521,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 				logrus.WithFields(logrus.Fields{
 					"cluster": config.Name,
 					"phase":   config.Status.Phase,
-				}).Infof("waiting for cluster [%s] upgrade task status %q",
+				}).Infof("waiting for cluster [%s] upgrade task status [%s]",
 					config.Spec.Name, utils.GetValue(res.Status.Phase))
 			}
 			h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
@@ -527,7 +544,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
-		}).Infof("waiting for cluster [%s] finish status %q",
+		}).Infof("waiting for cluster [%s] finish status [%s]",
 			config.Spec.Name, utils.GetValue(cluster.Status.Phase))
 		if config.Status.Phase != cceConfigUpdatingPhase {
 			configUpdate := config.DeepCopy()
@@ -603,27 +620,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 func (h *Handler) updateUpstreamClusterState(
 	upstreamSpec *ccev1.CCEClusterConfigSpec, config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, error) {
-	logrus.WithFields(logrus.Fields{
-		"cluster": config.Name,
-		"phase":   config.Status.Phase,
-	}).Debugf("start updateUpstreamClusterState")
-
 	var err error
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		configUpdate := config.DeepCopy()
-		configUpdate.Status.HostNetwork = upstreamSpec.HostNetwork
-		configUpdate.Status.ContainerNetwork = upstreamSpec.ContainerNetwork
-		config, err = h.cceCC.UpdateStatus(configUpdate)
-		return err
-	})
-	if err != nil {
-		return config, err
-	}
-
 	if config.Spec.Imported {
 		if config.Status.Phase != cceConfigActivePhase {
 			logrus.WithFields(logrus.Fields{
@@ -720,7 +717,7 @@ func (h *Handler) updateUpstreamClusterState(
 				np.Name, np.ID, config.Spec.Name)
 			continue
 		}
-		// Create nodePool if not fount in upstream spec.
+		// Create nodePool if not found in upstream spec.
 		res, err := cce.CreateNodePool(
 			h.driver.CCE, config.Spec.ClusterID, np)
 		if err != nil {
@@ -801,16 +798,6 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 	if err != nil {
 		return config, err
 	}
-	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Spec.ClusterID, false)
-	if err != nil {
-		return config, err
-	}
-
-	upstreamConfig, err := BuildUpstreamClusterState(cluster, nodePools)
-	if err != nil {
-		return config, err
-	}
-
 	var clusterExternalIP string
 	if cluster.Status != nil && cluster.Status.Endpoints != nil {
 		for _, endpoint := range *cluster.Status.Endpoints {
@@ -838,8 +825,6 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 			return err
 		}
 		configUpdate := config.DeepCopy()
-		configUpdate.Status.HostNetwork = upstreamConfig.HostNetwork
-		configUpdate.Status.ContainerNetwork = upstreamConfig.ContainerNetwork
 		configUpdate.Status.ClusterExternalIP = clusterExternalIP
 		config, err = h.cceCC.UpdateStatus(configUpdate)
 		return err
@@ -865,8 +850,7 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 
 // createCASecret creates a secret containing a CA and endpoint for use in generating a kubeconfig file.
 func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
-	// TODO: refresh cluster certs after 3 years
-	certs, err := cce.GetClusterCert(h.driver.CCE, config.Spec.ClusterID, 365*3)
+	certs, err := cce.GetClusterCert(h.driver.CCE, config.Spec.ClusterID, 0)
 	if err != nil {
 		return err
 	}

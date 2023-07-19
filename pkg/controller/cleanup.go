@@ -167,12 +167,12 @@ func (h *Handler) deleteCCECluster(
 func (h *Handler) deleteNetworkResources(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
-	if config.Status.ClusterExternalIPID != "" {
-		eipID := config.Status.ClusterExternalIPID
+	if config.Status.CreatedEIPID != "" {
+		eipID := config.Status.CreatedEIPID
 		_, err := network.GetPublicIP(h.driver.EIP, eipID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			config = config.DeepCopy()
-			config.Status.ClusterExternalIPID = ""
+			config.Status.CreatedEIPID = ""
 			config.Status.ClusterExternalIP = ""
 			config, err = h.cceCC.UpdateStatus(config)
 			if err != nil {
@@ -197,28 +197,20 @@ func (h *Handler) deleteNetworkResources(
 		}
 	}
 
-	var subnetID, vpcID string
-	if config.Spec.HostNetwork.VpcID == "" {
-		subnetID = config.Status.HostNetwork.SubnetID
-		vpcID = config.Status.HostNetwork.VpcID
-	} else if config.Spec.HostNetwork.SubnetID == "" {
-		subnetID = config.Status.HostNetwork.SubnetID
-	} else {
-		// HostNetwork provided, skip vpc & subnet deletion.
+	// Created VPC & Subnet resources were deleted.
+	if config.Status.CreatedVpcID == "" && config.Status.CreatedSubnetID == "" {
 		return config, false, nil
 	}
-
-	// HostNetwork resources were deleted.
-	if vpcID == "" && subnetID == "" {
-		return config, false, nil
-	}
-
-	var err error
+	var (
+		vpcID    = config.Status.CreatedVpcID
+		subnetID = config.Status.CreatedSubnetID
+		err      error
+	)
 	if subnetID != "" {
 		_, err = network.GetSubnet(h.driver.VPC, subnetID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			config = config.DeepCopy()
-			config.Status.HostNetwork.SubnetID = ""
+			config.Status.CreatedSubnetID = ""
 			config, err = h.cceCC.UpdateStatus(config)
 			if err != nil {
 				return config, false, err
@@ -241,7 +233,6 @@ func (h *Handler) deleteNetworkResources(
 			return config, true, nil
 		}
 	}
-
 	if vpcID != "" {
 		vpceps, err := network.GetVpcepServices(h.driver.VPCEP, "")
 		if err != nil {
@@ -251,7 +242,7 @@ func (h *Handler) deleteNetworkResources(
 		var vpcepsvcID string
 		if vpceps.EndpointServices != nil && len(*vpceps.EndpointServices) > 0 {
 			for _, v := range *vpceps.EndpointServices {
-				if v.VpcId == nil || *v.VpcId != config.Status.HostNetwork.VpcID {
+				if v.VpcId == nil || *v.VpcId != vpcID {
 					continue
 				}
 				vpcepsvcID = utils.GetValue(v.Id)
@@ -270,11 +261,10 @@ func (h *Handler) deleteNetworkResources(
 			}).Infof("request to delete VpcEndpointService [%s]", vpcepsvcID)
 			return config, true, nil
 		}
-
 		_, err = network.GetVPC(h.driver.VPC, vpcID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			config = config.DeepCopy()
-			config.Status.HostNetwork.VpcID = ""
+			config.Status.CreatedVpcID = ""
 			config, err = h.cceCC.UpdateStatus(config)
 			if err != nil {
 				return config, false, err
@@ -286,7 +276,7 @@ func (h *Handler) deleteNetworkResources(
 		} else if err != nil {
 			return config, false, err
 		} else {
-			_, err = network.DeleteVPC(h.driver.VPC, config.Status.HostNetwork.VpcID)
+			_, err = network.DeleteVPC(h.driver.VPC, vpcID)
 			if err != nil {
 				return config, false, err
 			}
@@ -297,6 +287,5 @@ func (h *Handler) deleteNetworkResources(
 			return config, true, nil
 		}
 	}
-
 	return config, false, nil
 }

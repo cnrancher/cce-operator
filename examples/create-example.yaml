@@ -19,7 +19,7 @@ spec:
     vpcID: ""
     subnetID: ""
   containerNetwork:
-    mode: "overlay_l2"
+    mode: "vpc-router"
     cidr: "172.16.1.0/24"
     # cidrs:
     #   - "172.16.123.0/24"
@@ -51,7 +51,7 @@ spec:
     - name: "nodepool-1"
       type: "vm"
       nodePoolID: ""
-      initialNodeCount: 1
+      initialNodeCount: 0
       autoscaling:
         enable: false
         minNodeCount: 0
@@ -71,7 +71,6 @@ spec:
           - size: 100
             type: "SSD"
         publicIP:
-        count: 1
         billingMode: 0
         runtime: "containerd"
         extendParam:

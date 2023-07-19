@@ -21,8 +21,8 @@ import (
 
 var (
 	DefaultVpcCIDR              = "10.10.0.0/16"
-	DefaultSubnetCIDR           = "10.10.2.0/24"
-	DefaultSubnetGateway        = "10.10.2.1"
+	DefaultSubnetCIDR           = "10.10.0.0/16"
+	DefaultSubnetGateway        = "10.10.0.1"
 	DefaultContainerNetworkMode = "eni"
 	DefaultContainerNetworkCIDR = "10.101.0.0/16"
 )
