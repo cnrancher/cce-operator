@@ -22,12 +22,19 @@ func BuildUpstreamClusterState(
 	spec := &ccev1.CCEClusterConfigSpec{
 		HuaweiCredentialSecret: "",
 		Category:               c.Spec.Category.Value(),
+		ClusterID:              utils.GetValue(c.Metadata.Uid),
 		Imported:               false,
 		Name:                   c.Metadata.Name,
 		Labels:                 c.Metadata.Labels,
 		Type:                   c.Spec.Type.Value(),
 		Flavor:                 c.Spec.Flavor,
 		Version:                utils.GetValue(c.Spec.Version),
+		Description:            utils.GetValue(c.Spec.Description),
+		Ipv6Enable:             utils.GetValue(c.Spec.Ipv6enable),
+		HostNetwork:            ccev1.CCEHostNetwork{},
+		ContainerNetwork:       ccev1.CCEContainerNetwork{},
+		EniNetwork:             ccev1.CCEEniNetwork{},
+		Authentication:         ccev1.CCEAuthentication{},
 		BillingMode:            utils.GetValue(c.Spec.BillingMode),
 		KubernetesSvcIPRange:   utils.GetValue(c.Spec.KubernetesSvcIpRange),
 		Tags:                   make(map[string]string),
@@ -43,12 +50,18 @@ func BuildUpstreamClusterState(
 		spec.ContainerNetwork.Mode = c.Spec.ContainerNetwork.Mode.Value()
 		spec.ContainerNetwork.CIDR = utils.GetValue(c.Spec.ContainerNetwork.Cidr)
 	}
+	if c.Spec.EniNetwork != nil {
+		for _, s := range c.Spec.EniNetwork.Subnets {
+			spec.EniNetwork.Subnets = append(spec.EniNetwork.Subnets, s.SubnetID)
+		}
+	}
 	if c.Spec.Authentication != nil {
 		spec.Authentication.Mode = utils.GetValue(c.Spec.Authentication.Mode)
-		if c.Spec.Authentication.AuthenticatingProxy != nil &&
-			c.Spec.Authentication.AuthenticatingProxy.Ca != nil {
-			spec.Authentication.AuthenticatingProxy.Ca = utils.GetValue(
-				c.Spec.Authentication.AuthenticatingProxy.Ca)
+		if c.Spec.Authentication.AuthenticatingProxy != nil {
+			ap := c.Spec.Authentication.AuthenticatingProxy
+			spec.Authentication.AuthenticatingProxy.Ca = utils.GetValue(ap.Ca)
+			spec.Authentication.AuthenticatingProxy.Cert = utils.GetValue(ap.Cert)
+			spec.Authentication.AuthenticatingProxy.PrivateKey = utils.GetValue(ap.PrivateKey)
 		}
 	}
 	if c.Spec.ClusterTags != nil && len(*c.Spec.ClusterTags) > 0 {
@@ -115,6 +128,8 @@ func BuildUpstreamNodePoolConfigs(
 				ScaleDownCooldownTime: utils.GetValue(np.Spec.Autoscaling.ScaleDownCooldownTime),
 				Priority:              utils.GetValue(np.Spec.Autoscaling.Priority),
 			},
+			PodSecurityGroups:    nil,
+			CustomSecurityGroups: nil,
 		}
 		if np.Spec.NodeTemplate.Login != nil && np.Spec.NodeTemplate.Login.SshKey != nil {
 			config.NodeTemplate.SSHKey = *np.Spec.NodeTemplate.Login.SshKey
@@ -151,6 +166,11 @@ func BuildUpstreamNodePoolConfigs(
 		}
 		if np.Spec.NodeTemplate.Runtime != nil && np.Spec.NodeTemplate.Runtime.Name != nil {
 			config.NodeTemplate.Runtime = np.Spec.NodeTemplate.Runtime.Name.Value()
+		}
+		if np.Spec.PodSecurityGroups != nil && len(*np.Spec.PodSecurityGroups) > 0 {
+			for _, pg := range *np.Spec.PodSecurityGroups {
+				config.PodSecurityGroups = append(config.PodSecurityGroups, utils.GetValue(pg.Id))
+			}
 		}
 		if np.Spec.CustomSecurityGroups != nil && len(*np.Spec.CustomSecurityGroups) > 0 {
 			config.CustomSecurityGroups = append(config.CustomSecurityGroups, *np.Spec.CustomSecurityGroups...)
