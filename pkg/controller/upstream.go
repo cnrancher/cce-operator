@@ -53,7 +53,7 @@ func BuildUpstreamClusterState(
 	}
 	if c.Spec.ClusterTags != nil && len(*c.Spec.ClusterTags) > 0 {
 		for _, ct := range *c.Spec.ClusterTags {
-			spec.Tags[utils.GetValue(ct.Key)] = spec.Tags[utils.GetValue(ct.Value)]
+			spec.Tags[utils.GetValue(ct.Key)] = utils.GetValue(ct.Value)
 		}
 	}
 	if c.Spec.ExtendParam != nil {
