@@ -36,6 +36,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 	for refresh = true; refresh; {
 		config, refresh, err = h.ensureCCEClusterDeletable(config)
 		if err != nil {
+			time.Sleep(time.Second * 3) // Avoid rate limit.
 			return config, err
 		}
 		if refresh {
@@ -46,6 +47,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 	for refresh = true; refresh; {
 		config, refresh, err = h.deleteCCECluster(config)
 		if err != nil {
+			time.Sleep(time.Second * 3) // Avoid rate limit.
 			return config, err
 		}
 		if refresh {
@@ -56,6 +58,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 	for refresh = true; refresh; {
 		config, refresh, err = h.deleteNetworkResources(config)
 		if err != nil {
+			time.Sleep(time.Second * 3) // Avoid rate limit.
 			return config, err
 		}
 		if refresh {
@@ -82,7 +85,7 @@ func (h *Handler) ensureCCEClusterDeletable(
 	nodes, err := cce.GetClusterNodes(h.driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		// Cluster was deleted and failed to query nodes.
-		return config, false, err
+		return config, false, nil
 	}
 	if nodes.Items == nil {
 		return config, false, fmt.Errorf("cce.GetClusterNodes returns invalid value")
