@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	ccecontrollers "github.com/cnrancher/cce-operator/pkg/generated/controllers/cce.pandaria.io/v1"
 	"github.com/cnrancher/cce-operator/pkg/huawei"
@@ -557,9 +556,36 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
 		return config, nil
 	}
+	configUpdate := config.DeepCopy()
+	var updateStatus = false
 	if config.Status.AvailableZone != utils.GetValue(cluster.Spec.Az) {
-		configUpdate := config.DeepCopy()
 		configUpdate.Status.AvailableZone = utils.GetValue(cluster.Spec.Az)
+		updateStatus = true
+	}
+	var updateEndpoints = false
+	if cluster.Status.Endpoints != nil {
+		if len(configUpdate.Status.Endpoints) == len(*cluster.Status.Endpoints) {
+			for i := range *cluster.Status.Endpoints {
+				if configUpdate.Status.Endpoints[i].Type != utils.GetValue((*cluster.Status.Endpoints)[i].Type) ||
+					configUpdate.Status.Endpoints[i].Url != utils.GetValue((*cluster.Status.Endpoints)[i].Url) {
+					updateEndpoints = true
+				}
+			}
+		} else {
+			updateEndpoints = true
+		}
+	}
+	if updateEndpoints {
+		configUpdate.Status.Endpoints = nil
+		for _, e := range *cluster.Status.Endpoints {
+			configUpdate.Status.Endpoints = append(configUpdate.Status.Endpoints, ccev1.CCEClusterEndpoints{
+				Url:  utils.GetValue(e.Url),
+				Type: utils.GetValue(e.Type),
+			})
+		}
+		updateStatus = true
+	}
+	if updateStatus {
 		if config, err = h.cceCC.UpdateStatus(configUpdate); err != nil {
 			return config, err
 		}
@@ -659,46 +685,12 @@ func (h *Handler) updateUpstreamClusterState(
 	}
 
 	// Check kubernetes version for upgrade cluster.
-	if upstreamSpec.Version != config.Spec.Version {
-		oldVer, err := semver.NewVersion(upstreamSpec.Version)
-		if err != nil {
-			return config, fmt.Errorf("invalid version %q: %w", upstreamSpec.Version, err)
-		}
-		newVer, err := semver.NewVersion(config.Spec.Version)
-		if err != nil {
-			return config, fmt.Errorf("invalid version %q: %w", config.Spec.Version, err)
-		}
-		if oldVer.Compare(newVer) >= 0 {
-			return config, fmt.Errorf("unsupported to downgrade cluster from %q to %q",
-				upstreamSpec.Version, config.Spec.Version)
-		}
-
-		res, err := cce.UpgradeCluster(h.driver.CCE, config)
-		if err != nil {
-			return config, err
-		}
-		if res == nil || res.Metadata == nil {
-			return config, fmt.Errorf("UpgradeCluster returns invalid data")
-		}
-		logrus.WithFields(logrus.Fields{
-			"cluster": config.Name,
-			"phase":   config.Status.Phase,
-		}).Infof("start upgrade cluster [%s] from version %q to %q, task id [%s]",
-			config.Spec.Name, config.Spec.Version, upstreamSpec.Version, utils.GetValue(res.Metadata.Uid))
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			configUpdate := config.DeepCopy()
-			configUpdate.Status.UpgradeClusterTaskID = utils.GetValue(res.Metadata.Uid)
-			config, err = h.cceCC.UpdateStatus(configUpdate)
-			return err
-		})
-		if err != nil {
-			return config, err
-		}
-		return h.enqueueUpdate(config)
+	ok, err := clusterUpgradeable(config.Spec.Version, upstreamSpec.Version)
+	if err != nil {
+		return config, err
+	}
+	if ok {
+		return h.upgradeCluster(config)
 	}
 
 	// Update cluster info.

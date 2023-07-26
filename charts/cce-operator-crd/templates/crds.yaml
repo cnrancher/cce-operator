@@ -308,6 +308,18 @@ spec:
               createdVpcID:
                 nullable: true
                 type: string
+              endpoints:
+                items:
+                  properties:
+                    type:
+                      nullable: true
+                      type: string
+                    url:
+                      nullable: true
+                      type: string
+                  type: object
+                nullable: true
+                type: array
               failureMessage:
                 nullable: true
                 type: string

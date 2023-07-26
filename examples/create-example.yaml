@@ -35,9 +35,9 @@ spec:
   kubernetesSvcIPRange: "10.1.2.0/24"
   tags:
   kubeProxyMode: "iptables"
-  publicAccess: false
+  publicAccess: true
   publicIP:
-    createEIP: false
+    createEIP: true
     eip:
       ipType: 5_sbgp
       bandwidth:
@@ -47,6 +47,7 @@ spec:
   extendParam:
     clusterAZ: "cn-north-1a"
     clusterExternalIP: ""
+  createdNodePoolIDs: null
   nodePools:
     - name: "nodepool-1"
       type: "vm"
@@ -72,7 +73,7 @@ spec:
             type: "SSD"
         publicIP:
         billingMode: 0
-        runtime: "containerd"
+        runtime: "docker"
         extendParam:
           periodType: "month"
           periodNum: 1

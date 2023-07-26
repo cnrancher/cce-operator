@@ -49,10 +49,10 @@ type CCEClusterConfigSpec struct {
 	ContainerNetwork       CCEContainerNetwork   `json:"containerNetwork"`
 	EniNetwork             CCEEniNetwork         `json:"eniNetwork,omitempty"`
 	Authentication         CCEAuthentication     `json:"authentication,omitempty"`
-	BillingMode            int32                 `json:"clusterBillingMode,omitempty"`
-	KubernetesSvcIPRange   string                `json:"kubernetesSvcIPRange,omitempty"`
+	BillingMode            int32                 `json:"clusterBillingMode"`
+	KubernetesSvcIPRange   string                `json:"kubernetesSvcIPRange"`
 	Tags                   map[string]string     `json:"tags"`
-	KubeProxyMode          string                `json:"kubeProxyMode,omitempty"`
+	KubeProxyMode          string                `json:"kubeProxyMode"`
 	PublicAccess           bool                  `json:"publicAccess"` // 若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
 	PublicIP               CCEClusterPublicIP    `json:"publicIP"`     // PublicAccess 为 true 且未提供已有的 ClusterExternalIP 时，创建公网 IP
 	ExtendParam            CCEClusterExtendParam `json:"extendParam,omitempty"`
@@ -68,8 +68,9 @@ type CCEClusterConfigStatus struct {
 	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
 
-	ClusterExternalIP string `json:"clusterExternalIP"` // Public Endpoint
-	AvailableZone     string `json:"availableZone"`     // master node region
+	ClusterExternalIP string                `json:"clusterExternalIP"` // master node public IP
+	AvailableZone     string                `json:"availableZone"`     // master node region
+	Endpoints         []CCEClusterEndpoints `json:"endpoints"`         // cluster Endpoints
 
 	CreatedVpcID         string `json:"createdVpcID"`         // VPC created by operator
 	CreatedSubnetID      string `json:"createdSubnetID"`      // Subnet created by operator
@@ -176,4 +177,9 @@ type CCEClusterExtendParam struct {
 	PeriodNum         int32  `json:"periodNum,omitempty"`         // 订购周期数
 	IsAutoRenew       string `json:"isAutoRenew,omitempty"`       // 是否自动续订
 	IsAutoPay         string `json:"isAutoPay,omitempty"`         // 是否自动扣款
+}
+
+type CCEClusterEndpoints struct {
+	Url  string `json:"url,omitempty"`
+	Type string `json:"type,omitempty"`
 }
