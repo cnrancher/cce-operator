@@ -65,6 +65,18 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 					},
 				},
 			},
+			NatGateway: CCENatGateway{
+				Enabled: true,
+				PublicIP: CCEEip{
+					Iptype: "5_bgp",
+					Bandwidth: CCEEipBandwidth{
+						ChargeMode: "traffic",
+						Size:       3,
+						ShareType:  "PER",
+					},
+				},
+				ExistingEIPID: "",
+			},
 			ExtendParam: CCEClusterExtendParam{
 				ClusterAZ:         "cn-north-1a",
 				ClusterExternalIP: "EIP-ADDR",

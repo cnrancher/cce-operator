@@ -44,6 +44,15 @@ spec:
         chargeMode: traffic
         size: 1
         shareType: PER
+  natGateway:
+    enabled: true
+    publicIP:
+      ipType: 5_sbgp
+      bandwidth:
+        chargeMode: traffic
+        size": 5,
+        shareType": PER
+    existingEIPID: ""
   extendParam:
     clusterAZ: "cn-north-1a"
     clusterExternalIP: ""

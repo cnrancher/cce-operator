@@ -11,6 +11,7 @@ import (
 	"github.com/cnrancher/cce-operator/pkg/huawei"
 	"github.com/cnrancher/cce-operator/pkg/huawei/cce"
 	"github.com/cnrancher/cce-operator/pkg/huawei/common"
+	"github.com/cnrancher/cce-operator/pkg/huawei/nat"
 	"github.com/cnrancher/cce-operator/pkg/huawei/network"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	cce_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
@@ -176,7 +177,7 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 	if err != nil {
 		return config, err
 	}
-	if cluster.Metadata == nil || cluster.Metadata.Uid == nil ||
+	if cluster == nil || cluster.Metadata == nil || cluster.Metadata.Uid == nil ||
 		cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
 		return config, fmt.Errorf("cce.CreateCluster return invalid value")
 	}
@@ -210,9 +211,9 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 
 func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
 	var err error
-	// Create EIP.
+	// Create Cluster PublicIP.
 	if config.Spec.PublicAccess && config.Spec.PublicIP.CreateEIP && config.Status.ClusterExternalIP == "" {
-		res, err := network.CreatePublicIP(h.driver.EIP, &config.Spec.PublicIP)
+		res, err := network.CreatePublicIP(h.driver.EIP, &config.Spec.PublicIP.Eip)
 		if err != nil {
 			return config, err
 		}
@@ -221,17 +222,18 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
-		}).Infof("created EIP [%s], address [%s]",
+		}).Infof("created cluster public IP [%s] address [%s]",
 			utils.GetValue(res.Publicip.Alias), utils.GetValue(res.Publicip.PublicIpAddress))
 		configUpdate := config.DeepCopy()
 		configUpdate.Status.ClusterExternalIP = utils.GetValue(res.Publicip.PublicIpAddress)
-		configUpdate.Status.CreatedEIPID = utils.GetValue(res.Publicip.Id)
+		configUpdate.Status.CreatedEIPIDs =
+			append(configUpdate.Status.CreatedEIPIDs, utils.GetValue(res.Publicip.Id))
 		config, err = h.cceCC.UpdateStatus(configUpdate)
 		if err != nil {
 			return config, err
 		}
 	}
-	// Do not create EIP and use existing EIP address.
+	// Do not create cluster public IP and use existing EIP address.
 	if config.Spec.PublicAccess && config.Status.ClusterExternalIP == "" && config.Spec.ExtendParam.ClusterExternalIP != "" {
 		configUpdate := config.DeepCopy()
 		configUpdate.Status.ClusterExternalIP = config.Spec.ExtendParam.ClusterExternalIP
@@ -239,11 +241,6 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if err != nil {
 			return config, err
 		}
-	}
-
-	// HostNetwork configured, skip.
-	if config.Status.CreatedVpcID != "" && config.Status.CreatedSubnetID != "" {
-		return config, nil
 	}
 
 	// Configure VPC & Subnet.
@@ -434,11 +431,74 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			config.Spec.HostNetwork.VpcID, config.Spec.HostNetwork.SubnetID)
 	}
 
-	config, err = h.cceCC.UpdateStatus(config)
-	if err != nil {
-		return config, err
+	// Configure NAT Gateway.
+	if config.Spec.NatGateway.Enabled && config.Status.CreatedNatGatewayID == "" {
+		configUpdate := config.DeepCopy()
+		natRes, err := nat.CreateNatGateway(h.driver.NAT, common.GenResourceName("nat"), &config.Spec)
+		if err != nil {
+			return config, err
+		}
+		if natRes.NatGateway == nil {
+			return config, fmt.Errorf("nat.CreateNatGateway returns invalid value")
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+		}).Infof("created NAT Gateway [%s] ID [%s]",
+			natRes.NatGateway.Name, natRes.NatGateway.Id)
+		configUpdate.Status.CreatedNatGatewayID = natRes.NatGateway.Id
+
+		var snatEipID string
+		if config.Spec.NatGateway.ExistingEIPID != "" {
+			// Existing EIP ID provided, ensure provided EIP exists.
+			snatEipID = config.Spec.NatGateway.ExistingEIPID
+			_, err := network.GetPublicIP(h.driver.EIP, snatEipID)
+			if err != nil {
+				return config, err
+			}
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+			}).Infof("use existing EIP ID [%s] for SNAT Rule", snatEipID)
+		} else {
+			// Create EIP for SNAT Rule.
+			eipRes, err := network.CreatePublicIP(h.driver.EIP, &config.Spec.PublicIP.Eip)
+			if err != nil {
+				return config, err
+			}
+			if eipRes.Publicip == nil {
+				return config, fmt.Errorf("network.CreatePublicIP returns invalid value")
+			}
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+			}).Infof("created public IP [%s] address [%s] for SNAT Rule",
+				utils.GetValue(eipRes.Publicip.Alias), utils.GetValue(eipRes.Publicip.PublicIpAddress))
+			snatEipID = utils.GetValue(eipRes.Publicip.Id)
+			configUpdate.Status.CreatedEIPIDs = append(configUpdate.Status.CreatedEIPIDs, utils.GetValue(eipRes.Publicip.Id))
+		}
+
+		snatRuleRes, err := nat.CreateNatGatewaySnatRule(
+			h.driver.NAT,
+			natRes.NatGateway.Id,
+			config.Spec.HostNetwork.SubnetID,
+			snatEipID,
+			0,
+		)
+		if err != nil {
+			return config, err
+		}
+		if snatRuleRes.SnatRule == nil {
+			return config, fmt.Errorf("nat.CreateNatGatewaySnatRule returns invalid value")
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+		}).Infof("created SNAT Rule [%s]", snatRuleRes.SnatRule.Id)
+
+		config, err = h.cceCC.UpdateStatus(configUpdate)
+		if err != nil {
+			return config, err
+		}
 	}
-	return config, err
+
+	return config, nil
 }
 
 func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {

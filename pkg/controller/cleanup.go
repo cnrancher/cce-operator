@@ -7,6 +7,7 @@ import (
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	"github.com/cnrancher/cce-operator/pkg/huawei"
 	"github.com/cnrancher/cce-operator/pkg/huawei/cce"
+	"github.com/cnrancher/cce-operator/pkg/huawei/nat"
 	"github.com/cnrancher/cce-operator/pkg/huawei/network"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	cce_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
@@ -87,7 +88,7 @@ func (h *Handler) ensureCCEClusterDeletable(
 		// Cluster was deleted and failed to query nodes.
 		return config, false, nil
 	}
-	if nodes.Items == nil {
+	if nodes == nil || nodes.Items == nil {
 		return config, false, fmt.Errorf("cce.GetClusterNodes returns invalid value")
 	}
 	for _, node := range *nodes.Items {
@@ -133,12 +134,18 @@ func (h *Handler) deleteCCECluster(
 		config = config.DeepCopy()
 		config.Spec.ClusterID = ""
 		config, err = h.cceCC.Update(config)
+		if err != nil {
+			return config, false, err
+		}
+		config = config.DeepCopy()
+		config.Status.ClusterExternalIP = ""
+		config, err = h.cceCC.UpdateStatus(config)
 		return config, false, err
 	} else if err != nil {
 		return config, false, err
 	}
-	if cluster.Status == nil || cluster.Metadata == nil {
-		return config, false, fmt.Errorf("cce.GetCluster rerturns invalid value")
+	if cluster == nil || cluster.Status == nil || cluster.Metadata == nil {
+		return config, false, fmt.Errorf("cce.GetCluster returns invalid value")
 	}
 	switch utils.GetValue(cluster.Status.Phase) {
 	case cce.ClusterStatusDeleting,
@@ -162,7 +169,7 @@ func (h *Handler) deleteCCECluster(
 	logrus.WithFields(logrus.Fields{
 		"cluster": config.Name,
 		"phase":   "remove",
-	}).Infof("requested to delete cluster [%s]", config.Spec.Name)
+	}).Infof("request to delete cluster [%s]", config.Spec.Name)
 
 	return config, true, nil
 }
@@ -170,13 +177,44 @@ func (h *Handler) deleteCCECluster(
 func (h *Handler) deleteNetworkResources(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
-	if config.Status.CreatedEIPID != "" {
-		eipID := config.Status.CreatedEIPID
+	// Delete NAT Gateway.
+	if config.Status.CreatedNatGatewayID != "" {
+		natID := config.Status.CreatedNatGatewayID
+		_, err := nat.DeleteNetGateway(h.driver.NAT, config.Status.CreatedNatGatewayID)
+		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
+			config = config.DeepCopy()
+			config.Status.CreatedNatGatewayID = ""
+			config, err = h.cceCC.UpdateStatus(config)
+			if err != nil {
+				return config, false, err
+			}
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("NAT Gateway [%s] deleted", natID)
+		} else if err != nil {
+			return config, false, err
+		} else {
+			_, err = nat.DeleteNetGateway(h.driver.NAT, natID)
+			if err != nil {
+				return config, false, err
+			}
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   "remove",
+			}).Infof("request to delete NAT Gateway [%v]", natID)
+			return config, true, nil
+		}
+	}
+
+	// Delete EIPs.
+	for i := 0; i < len(config.Status.CreatedEIPIDs); i++ {
+		eipID := config.Status.CreatedEIPIDs[i]
 		_, err := network.GetPublicIP(h.driver.EIP, eipID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			config = config.DeepCopy()
-			config.Status.CreatedEIPID = ""
-			config.Status.ClusterExternalIP = ""
+			config.Status.CreatedEIPIDs =
+				append(config.Status.CreatedEIPIDs[:i], config.Status.CreatedEIPIDs[i+1:]...)
 			config, err = h.cceCC.UpdateStatus(config)
 			if err != nil {
 				return config, false, err

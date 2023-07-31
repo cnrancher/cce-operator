@@ -7,12 +7,14 @@ import (
 	"github.com/cnrancher/cce-operator/pkg/huawei/cce"
 	"github.com/cnrancher/cce-operator/pkg/huawei/common"
 	"github.com/cnrancher/cce-operator/pkg/huawei/elb"
+	"github.com/cnrancher/cce-operator/pkg/huawei/nat"
 	"github.com/cnrancher/cce-operator/pkg/huawei/network"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	huawei_cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	huawei_dns "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2"
 	huawei_eip "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/eip/v2"
 	huawei_elb "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/elb/v2"
+	huawei_nat "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/nat/v2"
 	huawei_vpc "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpc/v2"
 	huawei_vpcep "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpcep/v1"
 	wranglerv1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
@@ -25,6 +27,7 @@ type HuaweiDriver struct {
 	CCE   *huawei_cce.CceClient
 	VPCEP *huawei_vpcep.VpcepClient
 	DNS   *huawei_dns.DnsClient
+	NAT   *huawei_nat.NatClient
 }
 
 func NewHuaweiDriver(auth *common.ClientAuth) *HuaweiDriver {
@@ -35,6 +38,7 @@ func NewHuaweiDriver(auth *common.ClientAuth) *HuaweiDriver {
 		EIP:   network.NewEipClient(auth),
 		VPCEP: network.NewVpcepClient(auth),
 		DNS:   network.NewDnsClient(auth),
+		NAT:   nat.NewNatClient(auth),
 	}
 }
 

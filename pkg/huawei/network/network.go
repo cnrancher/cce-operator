@@ -60,23 +60,23 @@ func NewDnsClient(c *common.ClientAuth) *dns.DnsClient {
 }
 
 func CreatePublicIP(
-	client *eip.EipClient, param *ccev1.CCEClusterPublicIP,
+	client *eip.EipClient, param *ccev1.CCEEip,
 ) (*eip_model.CreatePublicipResponse, error) {
 	body := &eip_model.CreatePublicipRequestBody{
 		Bandwidth: &eip_model.CreatePublicipBandwidthOption{
 			ChargeMode: nil, // bandwidth, traffic
 			Id:         nil,
 			ShareType:  eip_model.GetCreatePublicipBandwidthOptionShareTypeEnum().PER,
-			Size:       &param.Eip.Bandwidth.Size,
+			Size:       &param.Bandwidth.Size,
 			Name:       utils.GetPtr(common.GenResourceName("bandwidth")),
 		},
 		Publicip: &eip_model.CreatePublicipOption{
-			Type:  param.Eip.Iptype,
+			Type:  param.Iptype,
 			Alias: utils.GetPtr(common.GenResourceName("eip")),
 		},
 	}
 	var chargeMode eip_model.CreatePublicipBandwidthOptionChargeMode
-	switch param.Eip.Bandwidth.ChargeMode {
+	switch param.Bandwidth.ChargeMode {
 	case "bandwidth":
 		chargeMode = eip_model.GetCreatePublicipBandwidthOptionChargeModeEnum().BANDWIDTH
 	case "traffic":
@@ -86,7 +86,7 @@ func CreatePublicIP(
 	}
 	body.Bandwidth.ChargeMode = &chargeMode
 	var shareType eip_model.CreatePublicipBandwidthOptionShareType
-	switch param.Eip.Bandwidth.ShareType {
+	switch param.Bandwidth.ShareType {
 	case "PER":
 		shareType = eip_model.GetCreatePublicipBandwidthOptionShareTypeEnum().PER
 	case "WHOLE":

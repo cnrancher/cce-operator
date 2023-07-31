@@ -131,6 +131,31 @@ spec:
               name:
                 nullable: true
                 type: string
+              natGateway:
+                properties:
+                  enabled:
+                    type: boolean
+                  existingEIPID:
+                    nullable: true
+                    type: string
+                  publicIP:
+                    properties:
+                      bandwidth:
+                        properties:
+                          chargeMode:
+                            nullable: true
+                            type: string
+                          shareType:
+                            nullable: true
+                            type: string
+                          size:
+                            type: integer
+                        type: object
+                      ipType:
+                        nullable: true
+                        type: string
+                    type: object
+                type: object
               nodePools:
                 items:
                   properties:
@@ -299,7 +324,13 @@ spec:
               clusterExternalIP:
                 nullable: true
                 type: string
-              createdEIPID:
+              createdEIPIDs:
+                items:
+                  nullable: true
+                  type: string
+                nullable: true
+                type: array
+              createdNatGatewayID:
                 nullable: true
                 type: string
               createdSubnetID:

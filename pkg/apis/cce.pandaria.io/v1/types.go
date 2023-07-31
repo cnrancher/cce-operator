@@ -55,6 +55,7 @@ type CCEClusterConfigSpec struct {
 	KubeProxyMode          string                `json:"kubeProxyMode"`
 	PublicAccess           bool                  `json:"publicAccess"` // 若为 true，则创建集群时需提供已有的 ClusterExternalIP 或配置 PublicIP
 	PublicIP               CCEClusterPublicIP    `json:"publicIP"`     // PublicAccess 为 true 且未提供已有的 ClusterExternalIP 时，创建公网 IP
+	NatGateway             CCENatGateway         `json:"natGateway"`   // 使用 NAT 使节点访问公网
 	ExtendParam            CCEClusterExtendParam `json:"extendParam,omitempty"`
 	NodePools              []CCENodePool         `json:"nodePools"`
 
@@ -72,10 +73,11 @@ type CCEClusterConfigStatus struct {
 	AvailableZone     string                `json:"availableZone"`     // master node region
 	Endpoints         []CCEClusterEndpoints `json:"endpoints"`         // cluster Endpoints
 
-	CreatedVpcID         string `json:"createdVpcID"`         // VPC created by operator
-	CreatedSubnetID      string `json:"createdSubnetID"`      // Subnet created by operator
-	CreatedEIPID         string `json:"createdEIPID"`         // EIP ID created by operator
-	UpgradeClusterTaskID string `json:"upgradeClusterTaskID"` // Upgrade cluster task ID
+	CreatedVpcID         string   `json:"createdVpcID"`         // VPC created by operator
+	CreatedSubnetID      string   `json:"createdSubnetID"`      // Subnet created by operator
+	CreatedEIPIDs        []string `json:"createdEIPIDs"`        // EIP IDs created by operator
+	CreatedNatGatewayID  string   `json:"createdNatGatewayID"`  // NAT Gateway ID created by operator
+	UpgradeClusterTaskID string   `json:"upgradeClusterTaskID"` // Upgrade cluster task ID
 }
 
 type CCEHostNetwork struct {
@@ -182,4 +184,10 @@ type CCEClusterExtendParam struct {
 type CCEClusterEndpoints struct {
 	Url  string `json:"url,omitempty"`
 	Type string `json:"type,omitempty"`
+}
+
+type CCENatGateway struct {
+	Enabled       bool   `json:"enabled"`       // 为集群节点启用 NAT
+	PublicIP      CCEEip `json:"publicIP"`      // 为 NAT 新建 EIP 相关参数
+	ExistingEIPID string `json:"existingEIPID"` // 使用已有 EIP
 }

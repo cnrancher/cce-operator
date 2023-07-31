@@ -126,6 +126,16 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 				return fmt.Errorf(
 					"should provide 'clusterExternalIP' or setup 'publicIP' if 'publicAccess' is true")
 			}
+			if config.Spec.PublicIP.CreateEIP && config.Spec.PublicIP.Eip.Bandwidth.Size == 0 {
+				return fmt.Errorf(
+					"'publicIP.eip.bandwidth.size' should be configured when 'createEIP' is true")
+			}
+		}
+		if config.Spec.NatGateway.Enabled {
+			if config.Spec.NatGateway.ExistingEIPID == "" && config.Spec.NatGateway.PublicIP.Bandwidth.Size == 0 {
+				return fmt.Errorf(
+					"'natGateway.publicIP' should be configured when NAT enabled and 'existingEIPID' not provided")
+			}
 		}
 		if len(config.Spec.NodePools) == 0 {
 			return fmt.Errorf(cannotBeEmptyError, "nodePools", config.Name)
