@@ -2,7 +2,6 @@ package cce
 
 import (
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
-	"github.com/cnrancher/cce-operator/pkg/huawei/common"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
@@ -86,13 +85,39 @@ func GetNodePool(
 func UpdateNodePool(
 	client *cce.CceClient, clusterID string, nodePool *ccev1.CCENodePool,
 ) (*model.UpdateNodePoolResponse, error) {
-	req := common.GetUpdateNodePoolRequest(clusterID, nodePool)
+	req := GetUpdateNodePoolRequest(clusterID, nodePool)
 	res, err := client.UpdateNodePool(req)
 	if err != nil {
 		logrus.Debugf("UpdateNodePool failed: %v",
 			utils.PrintObject(req))
 	}
 	return res, err
+}
+
+func GetUpdateNodePoolRequest(
+	clusterID string, nodePool *ccev1.CCENodePool,
+) *model.UpdateNodePoolRequest {
+	req := &model.UpdateNodePoolRequest{
+		ClusterId:  clusterID,
+		NodepoolId: nodePool.ID,
+		Body: &model.NodePoolUpdate{
+			Metadata: &model.NodePoolMetadataUpdate{
+				Name: nodePool.Name,
+			},
+			Spec: &model.NodePoolSpecUpdate{
+				NodeTemplate:     &model.NodeSpecUpdate{},
+				InitialNodeCount: nodePool.InitialNodeCount,
+				Autoscaling: &model.NodePoolNodeAutoscaling{
+					Enable:                &nodePool.Autoscaling.Enable,
+					MinNodeCount:          &nodePool.Autoscaling.MinNodeCount,
+					MaxNodeCount:          &nodePool.Autoscaling.MaxNodeCount,
+					ScaleDownCooldownTime: &nodePool.Autoscaling.ScaleDownCooldownTime,
+					Priority:              &nodePool.Autoscaling.Priority,
+				},
+			},
+		},
+	}
+	return req
 }
 
 func DeleteNode(

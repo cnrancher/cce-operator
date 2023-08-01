@@ -6,9 +6,12 @@ import (
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	"github.com/cnrancher/cce-operator/pkg/huawei/cce"
 	"github.com/cnrancher/cce-operator/pkg/huawei/common"
+	"github.com/cnrancher/cce-operator/pkg/huawei/dns"
+	"github.com/cnrancher/cce-operator/pkg/huawei/eip"
 	"github.com/cnrancher/cce-operator/pkg/huawei/elb"
 	"github.com/cnrancher/cce-operator/pkg/huawei/nat"
-	"github.com/cnrancher/cce-operator/pkg/huawei/network"
+	"github.com/cnrancher/cce-operator/pkg/huawei/vpc"
+	"github.com/cnrancher/cce-operator/pkg/huawei/vpcep"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	huawei_cce "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3"
 	huawei_dns "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2"
@@ -34,10 +37,10 @@ func NewHuaweiDriver(auth *common.ClientAuth) *HuaweiDriver {
 	return &HuaweiDriver{
 		CCE:   cce.NewCCEClient(auth),
 		ELB:   elb.NewElbClient(auth),
-		VPC:   network.NewVpcClient(auth),
-		EIP:   network.NewEipClient(auth),
-		VPCEP: network.NewVpcepClient(auth),
-		DNS:   network.NewDnsClient(auth),
+		VPC:   vpc.NewVpcClient(auth),
+		EIP:   eip.NewEipClient(auth),
+		VPCEP: vpcep.NewVpcepClient(auth),
+		DNS:   dns.NewDnsClient(auth),
 		NAT:   nat.NewNatClient(auth),
 	}
 }

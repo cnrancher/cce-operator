@@ -45,7 +45,7 @@ func Test_GetCluster(t *testing.T) {
 	if client == nil {
 		return
 	}
-	cluster, err := cce.GetCluster(client, "")
+	cluster, err := cce.ShowCluster(client, "")
 	if err != nil {
 		t.Error(err)
 		return

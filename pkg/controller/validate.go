@@ -83,7 +83,7 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 		if config.Spec.ClusterID == "" {
 			return fmt.Errorf(cannotBeEmptyError, "clusterID", config.Name)
 		}
-		_, err := cce.GetCluster(h.driver.CCE, config.Spec.ClusterID)
+		_, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID)
 		if err != nil {
 			hwerr, _ := huawei.NewHuaweiError(err)
 			if hwerr.StatusCode == 404 {

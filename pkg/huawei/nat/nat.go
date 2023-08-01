@@ -29,6 +29,7 @@ func CreateNatGateway(
 				InternalNetworkId:   spec.HostNetwork.SubnetID,
 				Spec:                model.GetCreateNatGatewayOptionSpecEnum().E_1,
 				EnterpriseProjectId: nil,
+				Description:         &common.DefaultResourceDescription,
 			},
 		},
 	}
@@ -39,7 +40,7 @@ func CreateNatGateway(
 	return res, err
 }
 
-func ShowNetGateway(
+func ShowNatGateway(
 	client *nat.NatClient, id string,
 ) (*model.ShowNatGatewayResponse, error) {
 	req := &model.ShowNatGatewayRequest{
@@ -52,7 +53,7 @@ func ShowNetGateway(
 	return res, err
 }
 
-func DeleteNetGateway(
+func DeleteNatGateway(
 	client *nat.NatClient, id string,
 ) (*model.DeleteNatGatewayResponse, error) {
 	req := &model.DeleteNatGatewayRequest{
@@ -75,12 +76,40 @@ func CreateNatGatewaySnatRule(
 				NetworkId:    &networkID,
 				SourceType:   &sourceType,
 				FloatingIpId: eipID,
+				Description:  &common.DefaultResourceDescription,
 			},
 		},
 	}
 	res, err := client.CreateNatGatewaySnatRule(req)
 	if err == nil {
 		logrus.Debugf("CreateNatGatewaySnatRule failed: %v", utils.PrintObject(req))
+	}
+	return res, err
+}
+
+func ListNatGatewaySnatRules(
+	client *nat.NatClient, natIDs []string,
+) (*model.ListNatGatewaySnatRulesResponse, error) {
+	req := &model.ListNatGatewaySnatRulesRequest{
+		NatGatewayId: &natIDs,
+	}
+	res, err := client.ListNatGatewaySnatRules(req)
+	if err == nil {
+		logrus.Debugf("ListNatGatewaySnatRules failed: %v", utils.PrintObject(req))
+	}
+	return res, err
+}
+
+func DeleteNatGatewaySnatRule(
+	client *nat.NatClient, snatRuleID, natGatewayID string,
+) (*model.DeleteNatGatewaySnatRuleResponse, error) {
+	req := &model.DeleteNatGatewaySnatRuleRequest{
+		NatGatewayId: natGatewayID,
+		SnatRuleId:   snatRuleID,
+	}
+	res, err := client.DeleteNatGatewaySnatRule(req)
+	if err == nil {
+		logrus.Debugf("DeleteNatGatewaySnatRule failed: %v", utils.PrintObject(req))
 	}
 	return res, err
 }
