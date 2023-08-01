@@ -39,8 +39,9 @@ func CreateVPC(client *vpc.VpcClient, name, cidr string) (*model.CreateVpcRespon
 	request := &model.CreateVpcRequest{
 		Body: &model.CreateVpcRequestBody{
 			Vpc: &model.CreateVpcOption{
-				Name: &name,
-				Cidr: &cidr,
+				Name:        &name,
+				Cidr:        &cidr,
+				Description: &common.DefaultResourceDescription,
 			},
 		},
 	}

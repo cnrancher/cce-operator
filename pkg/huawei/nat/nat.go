@@ -34,7 +34,7 @@ func CreateNatGateway(
 		},
 	}
 	res, err := client.CreateNatGateway(req)
-	if err == nil {
+	if err != nil {
 		logrus.Debugf("CreateNatGateway failed: %v", utils.PrintObject(req))
 	}
 	return res, err
@@ -47,7 +47,7 @@ func ShowNatGateway(
 		NatGatewayId: id,
 	}
 	res, err := client.ShowNatGateway(req)
-	if err == nil {
+	if err != nil {
 		logrus.Debugf("ShowNatGateway failed: %v", utils.PrintObject(req))
 	}
 	return res, err
@@ -60,7 +60,7 @@ func DeleteNatGateway(
 		NatGatewayId: id,
 	}
 	res, err := client.DeleteNatGateway(req)
-	if err == nil {
+	if err != nil {
 		logrus.Debugf("DeleteNatGateway failed, ID [%v]", id)
 	}
 	return res, err
@@ -81,7 +81,7 @@ func CreateNatGatewaySnatRule(
 		},
 	}
 	res, err := client.CreateNatGatewaySnatRule(req)
-	if err == nil {
+	if err != nil {
 		logrus.Debugf("CreateNatGatewaySnatRule failed: %v", utils.PrintObject(req))
 	}
 	return res, err
@@ -94,7 +94,7 @@ func ListNatGatewaySnatRules(
 		NatGatewayId: &natIDs,
 	}
 	res, err := client.ListNatGatewaySnatRules(req)
-	if err == nil {
+	if err != nil {
 		logrus.Debugf("ListNatGatewaySnatRules failed: %v", utils.PrintObject(req))
 	}
 	return res, err
@@ -108,7 +108,7 @@ func DeleteNatGatewaySnatRule(
 		SnatRuleId:   snatRuleID,
 	}
 	res, err := client.DeleteNatGatewaySnatRule(req)
-	if err == nil {
+	if err != nil {
 		logrus.Debugf("DeleteNatGatewaySnatRule failed: %v", utils.PrintObject(req))
 	}
 	return res, err

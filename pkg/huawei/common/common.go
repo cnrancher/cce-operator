@@ -9,7 +9,7 @@ import (
 
 var (
 	resourceNamePrefix         = "rancher-managed"
-	DefaultResourceDescription = "Managed by rancher, **DO NOT EDIT**"
+	DefaultResourceDescription = "Managed by Rancher, do not edit!"
 )
 
 type ClientAuth struct {

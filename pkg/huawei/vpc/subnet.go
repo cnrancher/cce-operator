@@ -1,6 +1,7 @@
 package vpc
 
 import (
+	"github.com/cnrancher/cce-operator/pkg/huawei/common"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	vpc "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpc/v2"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpc/v2/model"
@@ -28,6 +29,7 @@ func CreateSubnet(client *vpc.VpcClient, name, vpcID, pDNS, sDNS string) (*model
 				PrimaryDns:   &pDNS,
 				SecondaryDns: &sDNS,
 				DhcpEnable:   utils.GetPtr(true),
+				Description:  &common.DefaultResourceDescription,
 			},
 		},
 	}
