@@ -65,8 +65,8 @@
     "natGateway": { // NAT 网关，为节点池中的节点提供公网访问能力（从 Docker Hub 拉取 Agent 镜像）
                     // 若不配置 NAT 网关，节点将无法访问公网，无法从 DockerHub 等 Public Registry 中拉取镜像
         "enabled": true, // 是否启用 NAT 网关
-        "existingEIPID": "", // NAT 网关的 SNAT Rule 使用已有的 EIP ID（若提供已有 EIP ID，将忽略下方 publicIP 参数）
-        "publicIP": { // 若未提供已有 EIP ID，则按照以下参数创建 EIP 并配置 SNAT Rule
+        "existingEIPID": "", // NAT 网关的 SNAT Rule 使用已有的 EIP ID（若提供已有 EIP ID，将忽略下方 snatRuleEIP 参数）
+        "snatRuleEIP": { // 若未提供已有 EIP ID，则按照以下参数创建 EIP 并配置 SNAT Rule
             "ipType": "5_sbgp", // 弹性IP类型 5_telcom（电信），5_union（联通），5_bgp（全动态BGP），5_sbgp（静态BGP）
             "bandwidth": {
                 "chargeMode": "traffic", // 计费模式: bandwidth，traffic

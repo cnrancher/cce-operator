@@ -85,7 +85,7 @@ func (h *Handler) ensureCCEClusterDeletable(
 		return config, false, nil
 	}
 
-	nodes, err := cce.GetClusterNodes(h.driver.CCE, config.Spec.ClusterID)
+	nodes, err := cce.ListNodes(h.driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		// Cluster was deleted and failed to query nodes.
 		return config, false, nil

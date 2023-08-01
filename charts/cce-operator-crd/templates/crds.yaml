@@ -138,7 +138,7 @@ spec:
                   existingEIPID:
                     nullable: true
                     type: string
-                  publicIP:
+                  snatRuleEIP:
                     properties:
                       bandwidth:
                         properties:

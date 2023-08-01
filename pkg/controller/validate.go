@@ -132,7 +132,7 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 			}
 		}
 		if config.Spec.NatGateway.Enabled {
-			if config.Spec.NatGateway.ExistingEIPID == "" && config.Spec.NatGateway.PublicIP.Bandwidth.Size == 0 {
+			if config.Spec.NatGateway.ExistingEIPID == "" && config.Spec.NatGateway.SNatRuleEIP.Bandwidth.Size == 0 {
 				return fmt.Errorf(
 					"'natGateway.publicIP' should be configured when NAT enabled and 'existingEIPID' not provided")
 			}

@@ -45,16 +45,16 @@ spec:
         size: 1
         shareType: PER
   natGateway:
-    enabled: true
-    publicIP:
+    enabled: false
+    snatRuleEIP:
       ipType: 5_sbgp
       bandwidth:
         chargeMode: traffic
-        size": 5,
-        shareType": PER
+        size: 5
+        shareType: PER
     existingEIPID: ""
   extendParam:
-    clusterAZ: "cn-north-1a"
+    clusterAZ: ""
     clusterExternalIP: ""
   createdNodePoolIDs: null
   nodePools:

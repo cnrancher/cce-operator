@@ -188,6 +188,6 @@ type CCEClusterEndpoints struct {
 
 type CCENatGateway struct {
 	Enabled       bool   `json:"enabled"`       // 为集群节点启用 NAT
-	PublicIP      CCEEip `json:"publicIP"`      // 为 NAT 新建 EIP 相关参数
-	ExistingEIPID string `json:"existingEIPID"` // 使用已有 EIP
+	SNatRuleEIP   CCEEip `json:"snatRuleEIP"`   // 配置 SNAT Rule 时新建 EIP 的参数
+	ExistingEIPID string `json:"existingEIPID"` // 配置 SNAT Rule 时使用已有 EIP
 }

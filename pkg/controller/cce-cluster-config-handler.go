@@ -508,11 +508,11 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 	if cluster.Status == nil || cluster.Metadata == nil || cluster.Spec == nil {
 		return config, fmt.Errorf("cce.GetCluster returns invalid data")
 	}
-	if *cluster.Status.Phase == cce.ClusterStatusUnavailable {
+	if utils.GetValue(cluster.Status.Phase) == cce.ClusterStatusUnavailable {
 		return config, fmt.Errorf("creation failed for cluster %q: %v",
 			cluster.Metadata.Name, utils.GetValue(cluster.Status.Reason))
 	}
-	if *cluster.Status.Phase == cce.ClusterStatusAvailable {
+	if utils.GetValue(cluster.Status.Phase) == cce.ClusterStatusAvailable {
 		if err := h.createCASecret(config); err != nil {
 			return config, fmt.Errorf("createCASecret: %w", err)
 		}
@@ -650,17 +650,21 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		}
 	}
 
+	if config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{}); err != nil {
+		return config, err
+	}
 	if len(config.Spec.CreatedNodePoolIDs) > 0 {
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
-		}).Debugf("waiting for cce-operator-controller (Rancher) to update nodePool ID")
+		}).Debugf("waiting for cce-operator-controller (Rancher) to update nodePool ID: %v",
+			utils.PrintObject(config.Spec.CreatedNodePoolIDs))
 		h.cceEnqueueAfter(config.Namespace, config.Name, 10*time.Second)
 		return config, nil
 	}
 
 	// Get the created node pools and build upstream cluster state.
-	nodePools, err := cce.GetClusterNodePools(h.driver.CCE, config.Spec.ClusterID, false)
+	nodePools, err := cce.ListNodePools(h.driver.CCE, config.Spec.ClusterID, false)
 	if err != nil {
 		return config, err
 	}
@@ -733,7 +737,7 @@ func (h *Handler) updateUpstreamClusterState(
 		return config, nil
 	}
 
-	// Update security group ID for created cluster
+	// Update security group ID for created cluster.
 	if config.Spec.HostNetwork.SecurityGroup != upstreamSpec.HostNetwork.SecurityGroup {
 		configUpdate := config.DeepCopy()
 		configUpdate.Spec.HostNetwork.SecurityGroup = upstreamSpec.HostNetwork.SecurityGroup
@@ -744,11 +748,9 @@ func (h *Handler) updateUpstreamClusterState(
 	}
 
 	// Check kubernetes version for upgrade cluster.
-	ok, err := clusterUpgradeable(config.Spec.Version, upstreamSpec.Version)
-	if err != nil {
+	if ok, err := clusterUpgradeable(config.Spec.Version, upstreamSpec.Version); err != nil {
 		return config, err
-	}
-	if ok {
+	} else if ok {
 		return h.upgradeCluster(config)
 	}
 
@@ -769,19 +771,23 @@ func (h *Handler) updateUpstreamClusterState(
 
 	// Compare nodePools between upstream & config spec.
 	enqueueNodePool := false
-	upstreamNodePools := make(map[string]bool, len(upstreamSpec.NodePools))
-	specNodePools := make(map[string]bool, len(config.Spec.NodePools))
+	upstreamNodePoolIDs := make(map[string]bool, len(upstreamSpec.NodePools))
+	upstreamNodePoolNames := make(map[string]bool, len(upstreamSpec.NodePools))
+	specNodePoolIDs := make(map[string]bool, len(config.Spec.NodePools))
+	specNodePoolNames := make(map[string]bool, len(config.Spec.NodePools))
 	for _, np := range upstreamSpec.NodePools {
-		upstreamNodePools[np.ID] = true
+		upstreamNodePoolIDs[np.ID] = true
+		upstreamNodePoolNames[np.Name] = true
 	}
 	createdNodePoolIDs := map[string]string{}
 	for i := 0; i < len(config.Spec.NodePools); i++ {
+		// This for loop create nodePool exists in spec but not exists in upstream.
 		np := &config.Spec.NodePools[i]
 		if np.ID != "" {
-			specNodePools[np.ID] = true
+			specNodePoolIDs[np.ID] = true
+			specNodePoolNames[np.Name] = true
 		}
-		// This for loop create nodePool exists in spec but not exists in upstream.
-		if upstreamNodePools[np.ID] {
+		if upstreamNodePoolIDs[np.ID] {
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 				"phase":   config.Status.Phase,
@@ -789,14 +795,22 @@ func (h *Handler) updateUpstreamClusterState(
 				np.Name, np.ID, config.Spec.Name)
 			continue
 		}
+		if upstreamNodePoolNames[np.Name] {
+			// Prevent creation of node pools with the same name.
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   config.Status.Phase,
+			}).Debugf("nodePool [%s] exists in cce cluster [%s], skip creation",
+				np.Name, config.Spec.Name)
+			continue
+		}
 		// Create nodePool if not found in upstream spec.
-		res, err := cce.CreateNodePool(
-			h.driver.CCE, config.Spec.ClusterID, np)
+		res, err := cce.CreateNodePool(h.driver.CCE, config.Spec.ClusterID, np)
 		if err != nil {
 			return config, err
 		}
 		if res.Metadata == nil {
-			return config, fmt.Errorf("createNodePool returns invalid data")
+			return config, fmt.Errorf("CreateNodePool returns invalid data")
 		}
 		enqueueNodePool = true
 		logrus.WithFields(logrus.Fields{
@@ -807,7 +821,8 @@ func (h *Handler) updateUpstreamClusterState(
 		createdNodePoolIDs[res.Metadata.Name] = utils.GetValue(res.Metadata.Uid)
 	}
 	if len(createdNodePoolIDs) != 0 {
-		// Update nodePool ID.
+		// Update CreatedNodePoolIDs map to let cce-operator-controller (in Rancher)
+		// know that some node pools were created by operator and update its ID properly.
 		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
 			if err != nil {
@@ -824,7 +839,7 @@ func (h *Handler) updateUpstreamClusterState(
 
 	for _, np := range upstreamSpec.NodePools {
 		// This for loop deletes nodePool exists in upstream but not exists in spec.
-		if specNodePools[np.ID] {
+		if specNodePoolIDs[np.ID] {
 			continue
 		}
 		logrus.WithFields(logrus.Fields{
@@ -849,7 +864,22 @@ func (h *Handler) updateUpstreamClusterState(
 			np.Name, np.ID)
 	}
 	if enqueueNodePool {
-		return h.enqueueUpdate(config)
+		if config.Status.Phase != cceConfigUpdatingPhase {
+			if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				config = config.DeepCopy()
+				config.Status.Phase = cceConfigUpdatingPhase
+				config, err = h.cceCC.UpdateStatus(config)
+				return err
+			}); err != nil {
+				return config, err
+			}
+		}
+		h.cceEnqueueAfter(config.Namespace, config.Name, 5*time.Second)
+		return config, nil
 	}
 
 	if config.Status.Phase != cceConfigActivePhase {

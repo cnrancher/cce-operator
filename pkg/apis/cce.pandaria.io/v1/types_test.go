@@ -67,7 +67,7 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 			},
 			NatGateway: CCENatGateway{
 				Enabled: true,
-				PublicIP: CCEEip{
+				SNatRuleEIP: CCEEip{
 					Iptype: "5_bgp",
 					Bandwidth: CCEEipBandwidth{
 						ChargeMode: "traffic",

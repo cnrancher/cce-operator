@@ -15,7 +15,7 @@ const (
 func CreateNodePool(
 	client *cce.CceClient, clusterID string, nodePool *ccev1.CCENodePool,
 ) (*model.CreateNodePoolResponse, error) {
-	req, err := getNodePoolRequirement(clusterID, nodePool)
+	req, err := GetCreateNodePoolRequest(clusterID, nodePool)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func CreateNodePool(
 	return res, err
 }
 
-func GetClusterNodes(client *cce.CceClient, clusterID string) (*model.ListNodesResponse, error) {
+func ListNodes(client *cce.CceClient, clusterID string) (*model.ListNodesResponse, error) {
 	request := &model.ListNodesRequest{
 		ClusterId: clusterID,
 	}
@@ -37,7 +37,7 @@ func GetClusterNodes(client *cce.CceClient, clusterID string) (*model.ListNodesR
 	return res, err
 }
 
-func GetClusterNodePools(
+func ListNodePools(
 	client *cce.CceClient, clusterID string, showDefaultNP bool,
 ) (*model.ListNodePoolsResponse, error) {
 	var sdnp *string
@@ -54,7 +54,7 @@ func GetClusterNodePools(
 	return res, err
 }
 
-func GetNode(
+func ShowNode(
 	client *cce.CceClient, clusterID, nodeID string,
 ) (*model.ShowNodeResponse, error) {
 	request := &model.ShowNodeRequest{
@@ -68,7 +68,7 @@ func GetNode(
 	return res, err
 }
 
-func GetNodePool(
+func ShowNodePool(
 	client *cce.CceClient, clusterID, npID string,
 ) (*model.ShowNodePoolResponse, error) {
 	res, err := client.ShowNodePool(&model.ShowNodePoolRequest{
@@ -146,7 +146,7 @@ func DeleteNodePool(
 	return res, err
 }
 
-func getNodePoolRequirement(
+func GetCreateNodePoolRequest(
 	clusterID string, np *ccev1.CCENodePool,
 ) (*model.CreateNodePoolRequest, error) {
 	nodePoolBody := &model.NodePool{

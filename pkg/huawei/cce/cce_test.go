@@ -28,11 +28,11 @@ func init() {
 	client = cce.NewCCEClient(auth)
 }
 
-func Test_GetClusterNodes(t *testing.T) {
+func Test_ListNodes(t *testing.T) {
 	if client == nil {
 		return
 	}
-	nodes, err := cce.GetClusterNodes(client, "")
+	nodes, err := cce.ListNodes(client, "")
 	if err != nil {
 		t.Error(err)
 		return
@@ -41,7 +41,7 @@ func Test_GetClusterNodes(t *testing.T) {
 	fmt.Printf("nodes.Items: \n%v\n", string(o))
 }
 
-func Test_GetCluster(t *testing.T) {
+func Test_ShowCluster(t *testing.T) {
 	if client == nil {
 		return
 	}
@@ -54,11 +54,11 @@ func Test_GetCluster(t *testing.T) {
 	fmt.Printf("cluster: \n%v\n", string(o))
 }
 
-func Test_GetClusterNodePools(t *testing.T) {
+func Test_ListNodePools(t *testing.T) {
 	if client == nil {
 		return
 	}
-	nodePools, err := cce.GetClusterNodePools(client, "", true)
+	nodePools, err := cce.ListNodePools(client, "", true)
 	if err != nil {
 		t.Error(err)
 		return
