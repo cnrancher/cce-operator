@@ -178,11 +178,6 @@ func (in *CCEClusterConfigStatus) DeepCopyInto(out *CCEClusterConfigStatus) {
 		*out = make([]CCEClusterEndpoints, len(*in))
 		copy(*out, *in)
 	}
-	if in.CreatedEIPIDs != nil {
-		in, out := &in.CreatedEIPIDs, &out.CreatedEIPIDs
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	return
 }
 

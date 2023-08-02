@@ -17,6 +17,7 @@ import (
 )
 
 func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
+	var err error
 	if config.Spec.Imported {
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
@@ -32,14 +33,11 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 		"phase":   "remove",
 	}).Infof("start deleting cluster [%s] resources", config.Name)
 
-	var (
-		refresh bool
-		err     error
-	)
+	var refresh bool
 	for refresh = true; refresh; {
 		config, refresh, err = h.ensureCCEClusterDeletable(config)
 		if err != nil {
-			time.Sleep(time.Second * 3) // Avoid rate limit.
+			time.Sleep(5 * time.Second) // Avoid rate limit.
 			return config, err
 		}
 		if refresh {
@@ -50,7 +48,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 	for refresh = true; refresh; {
 		config, refresh, err = h.deleteCCECluster(config)
 		if err != nil {
-			time.Sleep(time.Second * 3) // Avoid rate limit.
+			time.Sleep(5 * time.Second) // Avoid rate limit.
 			return config, err
 		}
 		if refresh {
@@ -61,7 +59,7 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 	for refresh = true; refresh; {
 		config, refresh, err = h.deleteNetworkResources(config)
 		if err != nil {
-			time.Sleep(time.Second * 3) // Avoid rate limit.
+			time.Sleep(5 * time.Second) // Avoid rate limit.
 			return config, err
 		}
 		if refresh {
@@ -179,6 +177,7 @@ func (h *Handler) deleteCCECluster(
 func (h *Handler) deleteNetworkResources(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
+	var err error
 	if config.Status.CreatedNatGatewayID != "" {
 		natID := config.Status.CreatedNatGatewayID
 		// Delete SNAT Rules before delete NAT Gateway.
@@ -190,8 +189,7 @@ func (h *Handler) deleteNetworkResources(
 			return config, false, fmt.Errorf("ListNatGatewaySnatRules returns invalid data")
 		}
 		for _, sr := range *snatRulesRes.SnatRules {
-			_, err := nat.DeleteNatGatewaySnatRule(h.driver.NAT, sr.Id, natID)
-			if err != nil {
+			if _, err = nat.DeleteNatGatewaySnatRule(h.driver.NAT, sr.Id, natID); err != nil {
 				return config, false, err
 			}
 			logrus.WithFields(logrus.Fields{
@@ -208,98 +206,107 @@ func (h *Handler) deleteNetworkResources(
 		// Delete NatGateway.
 		_, err = nat.ShowNatGateway(h.driver.NAT, config.Status.CreatedNatGatewayID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
-			config = config.DeepCopy()
-			config.Status.CreatedNatGatewayID = ""
-			config, err = h.cceCC.UpdateStatus(config)
-			if err != nil {
-				return config, false, err
-			}
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 				"phase":   "remove",
 			}).Infof("NAT Gateway [%s] deleted", natID)
+			config = config.DeepCopy()
+			config.Status.CreatedNatGatewayID = ""
+			config.Status.CreatedSNATRuleID = ""
+			config, err = h.cceCC.UpdateStatus(config)
+			return config, true, err
 		} else if err != nil {
 			return config, false, err
-		} else {
-			_, err = nat.DeleteNatGateway(h.driver.NAT, natID)
-			if err != nil {
-				return config, false, err
-			}
-			logrus.WithFields(logrus.Fields{
-				"cluster": config.Name,
-				"phase":   "remove",
-			}).Infof("request to delete NAT Gateway [%v]", natID)
-			// Requeue to wait for NAT Gateway were deleted.
-			return config, true, nil
 		}
+		_, err = nat.DeleteNatGateway(h.driver.NAT, natID)
+		if err != nil {
+			return config, false, err
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("request to delete NAT Gateway [%v]", natID)
+		// Requeue to wait for NAT Gateway were deleted.
+		return config, true, nil
 	}
 
-	// Delete EIPs.
-	for i := 0; i < len(config.Status.CreatedEIPIDs); i++ {
-		eipID := config.Status.CreatedEIPIDs[i]
-		_, err := eip.GetPublicIP(h.driver.EIP, eipID)
+	// Delete EIP.
+	if config.Status.CreatedClusterEIPID != "" {
+		eipID := config.Status.CreatedClusterEIPID
+		_, err = eip.ShowPublicip(h.driver.EIP, eipID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			config = config.DeepCopy()
-			config.Status.CreatedEIPIDs =
-				append(config.Status.CreatedEIPIDs[:i], config.Status.CreatedEIPIDs[i+1:]...)
+			config.Status.CreatedClusterEIPID = ""
 			config, err = h.cceCC.UpdateStatus(config)
-			if err != nil {
-				return config, false, err
-			}
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 				"phase":   "remove",
-			}).Infof("EIP [%s] deleted", eipID)
+			}).Infof("cluster EIP [%s] deleted", eipID)
+			return config, true, err
 		} else if err != nil {
 			return config, false, err
-		} else {
-			_, err = eip.DeletePublicIP(h.driver.EIP, eipID)
-			if err != nil {
-				return config, false, err
-			}
+		}
+		if _, err = eip.DeletePublicIP(h.driver.EIP, eipID); err != nil {
+			return config, false, err
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("request to delete EIP [%v]", eipID)
+		return config, true, nil
+	}
+	if config.Status.CreatedSNatRuleEIPID != "" {
+		eipID := config.Status.CreatedSNatRuleEIPID
+		_, err = eip.ShowPublicip(h.driver.EIP, eipID)
+		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
+			config = config.DeepCopy()
+			config.Status.CreatedSNatRuleEIPID = ""
+			config, err = h.cceCC.UpdateStatus(config)
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 				"phase":   "remove",
-			}).Infof("request to delete EIP [%v]", eipID)
-			return config, true, nil
+			}).Infof("SNAT Rule EIP [%s] deleted", eipID)
+			return config, true, err
+		} else if err != nil {
+			return config, false, err
 		}
+		if _, err = eip.DeletePublicIP(h.driver.EIP, eipID); err != nil {
+			return config, false, err
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("request to delete EIP [%v]", eipID)
+		return config, true, nil
 	}
 
-	// Created VPC & Subnet resources were deleted.
-	if config.Status.CreatedVpcID == "" && config.Status.CreatedSubnetID == "" {
-		return config, false, nil
-	}
 	var (
 		vpcID    = config.Status.CreatedVpcID
 		subnetID = config.Status.CreatedSubnetID
-		err      error
 	)
 	if subnetID != "" {
 		_, err = vpc.ShowSubnet(h.driver.VPC, subnetID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
-			config = config.DeepCopy()
-			config.Status.CreatedSubnetID = ""
-			config, err = h.cceCC.UpdateStatus(config)
-			if err != nil {
-				return config, false, err
-			}
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 				"phase":   "remove",
 			}).Infof("subnet [%s] deleted", subnetID)
+			config = config.DeepCopy()
+			config.Status.CreatedSubnetID = ""
+			config, err = h.cceCC.UpdateStatus(config)
+			return config, true, err
 		} else if err != nil {
 			return config, false, err
-		} else {
-			_, err := vpc.DeleteSubnet(h.driver.VPC, vpcID, subnetID)
-			if err != nil {
-				return config, false, err
-			}
-			logrus.WithFields(logrus.Fields{
-				"cluster": config.Name,
-				"phase":   "remove",
-			}).Infof("request to delete subnet [%s]", subnetID)
-			return config, true, nil
 		}
+		_, err := vpc.DeleteSubnet(h.driver.VPC, vpcID, subnetID)
+		if err != nil {
+			return config, false, err
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("request to delete subnet [%s]", subnetID)
+		return config, true, nil
 	}
 	if vpcID != "" {
 		vpceps, err := vpcep.ListEndpointService(h.driver.VPCEP, "")
@@ -331,29 +338,26 @@ func (h *Handler) deleteNetworkResources(
 		}
 		_, err = vpc.ShowVPC(h.driver.VPC, vpcID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
-			config = config.DeepCopy()
-			config.Status.CreatedVpcID = ""
-			config, err = h.cceCC.UpdateStatus(config)
-			if err != nil {
-				return config, false, err
-			}
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 				"phase":   "remove",
 			}).Infof("vpc [%s] deleted", vpcID)
+			config = config.DeepCopy()
+			config.Status.CreatedVpcID = ""
+			config, err = h.cceCC.UpdateStatus(config)
+			return config, true, err
 		} else if err != nil {
 			return config, false, err
-		} else {
-			_, err = vpc.DeleteVPC(h.driver.VPC, vpcID)
-			if err != nil {
-				return config, false, err
-			}
-			logrus.WithFields(logrus.Fields{
-				"cluster": config.Name,
-				"phase":   "remove",
-			}).Infof("request to delete vpc [%s]", vpcID)
-			return config, true, nil
 		}
+		_, err = vpc.DeleteVPC(h.driver.VPC, vpcID)
+		if err != nil {
+			return config, false, err
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   "remove",
+		}).Infof("request to delete vpc [%s]", vpcID)
+		return config, true, nil
 	}
 	return config, false, nil
 }

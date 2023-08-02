@@ -324,13 +324,16 @@ spec:
               clusterExternalIP:
                 nullable: true
                 type: string
-              createdEIPIDs:
-                items:
-                  nullable: true
-                  type: string
+              createdClusterEIPID:
                 nullable: true
-                type: array
+                type: string
               createdNatGatewayID:
+                nullable: true
+                type: string
+              createdSNATRuleID:
+                nullable: true
+                type: string
+              createdSNatRuleEIPID:
                 nullable: true
                 type: string
               createdSubnetID:

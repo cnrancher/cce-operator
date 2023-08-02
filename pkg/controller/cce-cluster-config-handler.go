@@ -66,12 +66,8 @@ func (h *Handler) OnCCEConfigChanged(_ string, config *ccev1.CCEClusterConfig) (
 	if config == nil {
 		return nil, nil
 	}
-	if config.Name == "" {
+	if config.Name == "" || config.DeletionTimestamp != nil {
 		return config, nil
-	}
-
-	if config.DeletionTimestamp != nil {
-		return nil, nil
 	}
 
 	if err := h.newDriver(h.secretsCache, &config.Spec); err != nil {
@@ -147,7 +143,11 @@ func (h *Handler) recordError(
 }
 
 func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
-	if err := h.validateCreate(config); err != nil {
+	var err error
+	if config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{}); err != nil {
+		return config, err
+	}
+	if err = h.validateCreate(config); err != nil {
 		return config, err
 	}
 
@@ -157,24 +157,22 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		return h.cceCC.UpdateStatus(config)
 	}
 
-	var err error
 	if config, err = h.generateAndSetNetworking(config); err != nil {
 		return config, err
 	}
 
-	// create cluster
 	if config.Spec.ClusterID != "" {
-		_, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID)
-		if err == nil {
+		if _, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID); err == nil {
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
-			}).Infof("cluster [%s] ID [%s] already created, switch to creating phase",
+			}).Infof("cluster [%s] ID [%s] created, switch to creating phase",
 				config.Spec.Name, config.Spec.ClusterID)
 			config = config.DeepCopy()
 			config.Status.Phase = cceConfigCreatingPhase
 			return h.cceCC.UpdateStatus(config)
 		}
 	}
+	// Create cluster.
 	cluster, err := cce.CreateCluster(h.driver.CCE, config)
 	if err != nil {
 		return config, err
@@ -183,7 +181,9 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
 		return config, fmt.Errorf("cce.CreateCluster return invalid data")
 	}
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	// Use the RetryOnConflict to prevent repeated creation of cluster.
+	// Update spec (ClusterID).
+	if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -192,8 +192,11 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		config.Spec.ClusterID = *cluster.Metadata.Uid
 		config, err = h.cceCC.Update(config)
 		return err
-	})
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	}); err != nil {
+		return config, err
+	}
+	// Update status (Phase).
+	if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -203,7 +206,9 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		config.Status.FailureMessage = ""
 		config, err = h.cceCC.UpdateStatus(config)
 		return err
-	})
+	}); err != nil {
+		return config, err
+	}
 	logrus.WithFields(logrus.Fields{
 		"cluster": config.Name,
 	}).Infof("request to create cluster name [%s] ID [%s]",
@@ -226,21 +231,33 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			"cluster": config.Name,
 		}).Infof("created cluster public IP [%s] address [%s]",
 			utils.GetValue(res.Publicip.Alias), utils.GetValue(res.Publicip.PublicIpAddress))
-		configUpdate := config.DeepCopy()
-		configUpdate.Status.ClusterExternalIP = utils.GetValue(res.Publicip.PublicIpAddress)
-		configUpdate.Status.CreatedEIPIDs =
-			append(configUpdate.Status.CreatedEIPIDs, utils.GetValue(res.Publicip.Id))
-		config, err = h.cceCC.UpdateStatus(configUpdate)
-		if err != nil {
+		// Use the RetryOnConflict to prevent repeated creation of EIP.
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.ClusterExternalIP = utils.GetValue(res.Publicip.PublicIpAddress)
+			configUpdate.Status.CreatedClusterEIPID = utils.GetValue(res.Publicip.Id)
+			config, err = h.cceCC.UpdateStatus(configUpdate)
+			return err
+		}); err != nil {
 			return config, err
 		}
 	}
 	// Do not create cluster public IP and use existing EIP address.
 	if config.Spec.PublicAccess && config.Status.ClusterExternalIP == "" && config.Spec.ExtendParam.ClusterExternalIP != "" {
-		configUpdate := config.DeepCopy()
-		configUpdate.Status.ClusterExternalIP = config.Spec.ExtendParam.ClusterExternalIP
-		config, err = h.cceCC.UpdateStatus(configUpdate)
-		if err != nil {
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.ClusterExternalIP = config.Spec.ExtendParam.ClusterExternalIP
+			config, err = h.cceCC.UpdateStatus(configUpdate)
+			return err
+		}); err != nil {
 			return config, err
 		}
 	}
@@ -303,6 +320,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}).Infof("created subnet for VPC [%s]: name [%s] ID [%s]",
 			vpcRes.Vpc.Name, subnetRes.Subnet.Name, subnetRes.Subnet.Id)
 		// Update status.
+		// Use the RetryOnConflict to prevent repeated creation of VPC & Subnet.
 		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
 			if err != nil {
@@ -387,6 +405,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}).Infof("created subnet for VPC [%s]: name [%s] ID [%s]",
 			vpcRes.Vpc.Name, subnetRes.Subnet.Name, subnetRes.Subnet.Id)
 		// Update status.
+		// Use the RetryOnConflict to prevent repeated creation of subnet.
 		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
 			if err != nil {
@@ -423,16 +442,17 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if err != nil {
 			return config, err
 		}
-		// Update status.
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 		}).Infof("VPC [%s] and subnet [%s] are provided",
 			config.Spec.HostNetwork.VpcID, config.Spec.HostNetwork.SubnetID)
 	}
 
+	// Add timeout to avoid huawei "The virSubnet is not in the vpc" error.
+	time.Sleep(time.Second)
+
 	// Configure NAT Gateway.
 	if config.Spec.NatGateway.Enabled && config.Status.CreatedNatGatewayID == "" {
-		configUpdate := config.DeepCopy()
 		natRes, err := nat.CreateNatGateway(h.driver.NAT, common.GenResourceName("nat"), &config.Spec)
 		if err != nil {
 			return config, err
@@ -444,20 +464,34 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			"cluster": config.Name,
 		}).Infof("created NAT Gateway [%s] ID [%s]",
 			natRes.NatGateway.Name, natRes.NatGateway.Id)
-		configUpdate.Status.CreatedNatGatewayID = natRes.NatGateway.Id
-
+		// Use the RetryOnConflict to prevent repeated creation of NAT Gateway.
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.CreatedNatGatewayID = natRes.NatGateway.Id
+			config, err = h.cceCC.UpdateStatus(configUpdate)
+			return err
+		}); err != nil {
+			return config, err
+		}
+	}
+	// Configure SNAT Rule for NAT Gateway.
+	if config.Spec.NatGateway.Enabled && config.Status.CreatedSNATRuleID == "" {
+		// Configure EIP for SNAT Rule.
 		var snatEipID string
 		if config.Spec.NatGateway.ExistingEIPID != "" {
 			// Existing EIP ID provided, ensure provided EIP exists.
 			snatEipID = config.Spec.NatGateway.ExistingEIPID
-			_, err := eip.GetPublicIP(h.driver.EIP, snatEipID)
-			if err != nil {
+			if _, err = eip.ShowPublicip(h.driver.EIP, snatEipID); err != nil {
 				return config, err
 			}
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 			}).Infof("use existing EIP ID [%s] for SNAT Rule", snatEipID)
-		} else {
+		} else if config.Status.CreatedSNatRuleEIPID == "" {
 			// Create EIP for SNAT Rule.
 			eipRes, err := eip.CreatePublicIP(h.driver.EIP, &config.Spec.PublicIP.Eip)
 			if err != nil {
@@ -471,12 +505,26 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			}).Infof("created public IP [%s] address [%s] for SNAT Rule",
 				utils.GetValue(eipRes.Publicip.Alias), utils.GetValue(eipRes.Publicip.PublicIpAddress))
 			snatEipID = utils.GetValue(eipRes.Publicip.Id)
-			configUpdate.Status.CreatedEIPIDs = append(configUpdate.Status.CreatedEIPIDs, utils.GetValue(eipRes.Publicip.Id))
+			// Use the RetryOnConflict to prevent repeated creation of EIP used by SNAT Rule.
+			if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				configUpdate := config.DeepCopy()
+				configUpdate.Status.CreatedSNatRuleEIPID = utils.GetValue(eipRes.Publicip.Id)
+				config, err = h.cceCC.UpdateStatus(configUpdate)
+				return err
+			}); err != nil {
+				return config, err
+			}
+		} else {
+			snatEipID = config.Status.CreatedSNatRuleEIPID
 		}
 
 		snatRuleRes, err := nat.CreateNatGatewaySnatRule(
 			h.driver.NAT,
-			natRes.NatGateway.Id,
+			config.Status.CreatedNatGatewayID,
 			config.Spec.HostNetwork.SubnetID,
 			snatEipID,
 			0,
@@ -484,15 +532,23 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if err != nil {
 			return config, err
 		}
-		if snatRuleRes.SnatRule == nil {
+		if snatRuleRes == nil || snatRuleRes.SnatRule == nil {
 			return config, fmt.Errorf("nat.CreateNatGatewaySnatRule returns invalid data")
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 		}).Infof("created SNAT Rule [%s]", snatRuleRes.SnatRule.Id)
-
-		config, err = h.cceCC.UpdateStatus(configUpdate)
-		if err != nil {
+		// Use the RetryOnConflict to prevent repeated creation of SNAT Rule.
+		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.CreatedSNATRuleID = snatRuleRes.SnatRule.Id
+			config, err = h.cceCC.UpdateStatus(configUpdate)
+			return err
+		}); err != nil {
 			return config, err
 		}
 	}
@@ -979,10 +1035,6 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 
 	endpoint := utils.GetValue(clusterCert.Cluster.Server)
 	ca := utils.GetValue(clusterCert.Cluster.CertificateAuthorityData)
-	logrus.WithFields(logrus.Fields{
-		"cluster": config.Name,
-		"phase":   config.Status.Phase,
-	}).Infof("create secret [%s]", config.Name)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.Name,
@@ -1005,6 +1057,10 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 	if err != nil {
 		// Secret does not created yet
 		_, err = h.secrets.Create(secret)
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Infof("create secret [%s]", config.Name)
 	}
 
 	return err
