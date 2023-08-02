@@ -64,7 +64,7 @@ func CreatePublicIP(
 	return res, err
 }
 
-func GetPublicIP(client *eip.EipClient, ID string) (*model.ShowPublicipResponse, error) {
+func ShowPublicip(client *eip.EipClient, ID string) (*model.ShowPublicipResponse, error) {
 	res, err := client.ShowPublicip(&model.ShowPublicipRequest{
 		PublicipId: ID,
 	})

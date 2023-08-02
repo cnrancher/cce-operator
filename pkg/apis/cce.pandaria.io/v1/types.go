@@ -73,11 +73,15 @@ type CCEClusterConfigStatus struct {
 	AvailableZone     string                `json:"availableZone"`     // master node region
 	Endpoints         []CCEClusterEndpoints `json:"endpoints"`         // cluster Endpoints
 
-	CreatedVpcID         string   `json:"createdVpcID"`         // VPC created by operator
-	CreatedSubnetID      string   `json:"createdSubnetID"`      // Subnet created by operator
-	CreatedEIPIDs        []string `json:"createdEIPIDs"`        // EIP IDs created by operator
-	CreatedNatGatewayID  string   `json:"createdNatGatewayID"`  // NAT Gateway ID created by operator
-	UpgradeClusterTaskID string   `json:"upgradeClusterTaskID"` // Upgrade cluster task ID
+	CreatedClusterEIPID string `json:"createdClusterEIPID"` // cluster EIP
+	CreatedVpcID        string `json:"createdVpcID"`        // VPC ID
+	CreatedSubnetID     string `json:"createdSubnetID"`     // Subnet ID
+
+	CreatedNatGatewayID  string `json:"createdNatGatewayID"`  // NAT Gateway ID
+	CreatedSNatRuleEIPID string `json:"createdSNatRuleEIPID"` // EIP ID for SNAT Rule
+	CreatedSNATRuleID    string `json:"createdSNATRuleID"`    // SNAT Rule ID
+
+	UpgradeClusterTaskID string `json:"upgradeClusterTaskID"` // upgrade cluster task ID
 }
 
 type CCEHostNetwork struct {

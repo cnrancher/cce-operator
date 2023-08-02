@@ -93,6 +93,10 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 			return err
 		}
 	} else {
+		// Cluster may already created, skip validation.
+		if config.Spec.ClusterID != "" {
+			return nil
+		}
 		listClustersRes, err := cce.ListClusters(h.driver.CCE)
 		if err != nil {
 			return err
