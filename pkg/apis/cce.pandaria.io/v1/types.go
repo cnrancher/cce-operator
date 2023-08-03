@@ -36,7 +36,7 @@ type CCEClusterConfigSpec struct {
 	HuaweiCredentialSecret string                `json:"huaweiCredentialSecret"`
 	Category               string                `json:"category"` // 集群类别: CCE
 	RegionID               string                `json:"regionID"`
-	ClusterID              string                `json:"clusterID,omitempty"` // 仅导入集群时需要提供
+	ClusterID              string                `json:"clusterID"` // 仅导入集群时需要提供
 	Imported               bool                  `json:"imported"`
 	Name                   string                `json:"name"`
 	Labels                 map[string]string     `json:"labels,omitempty"`
@@ -85,9 +85,9 @@ type CCEClusterConfigStatus struct {
 }
 
 type CCEHostNetwork struct {
-	VpcID         string `json:"vpcID,omitempty"`
-	SubnetID      string `json:"subnetID,omitempty"`
-	SecurityGroup string `json:"securityGroup,omitempty"`
+	VpcID         string `json:"vpcID"`
+	SubnetID      string `json:"subnetID"`
+	SecurityGroup string `json:"securityGroup"`
 }
 
 type CCEContainerNetwork struct {
