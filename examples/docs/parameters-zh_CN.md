@@ -164,8 +164,6 @@
     "description": "", // 更新集群描述
     // "version": "v1.25" // 集群升级（暂不支持）
     "hostNetwork": {
-        "vpcID": "VPC-ID", // VPC ID
-        "subnetID": "SUBNET-ID", // SubnetID
         "securityGroup": "SECURITY-GROUP-ID" // Security Group
     },
     "nodePools": [ // 可编辑节点池数组，用于增加/删除节点池
