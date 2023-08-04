@@ -5,6 +5,7 @@ metadata:
 spec:
   huaweiCredentialSecret: "cattle-global-data:cc-test-cce"
   regionID: "cn-north-1"
+  # Modify the clusterID manually
   clusterID: "aaa-bbb-ccc"
   imported: true
   name: "import-test"

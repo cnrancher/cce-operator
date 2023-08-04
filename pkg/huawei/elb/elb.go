@@ -52,7 +52,7 @@ func GetLoadBalancer(client *elb.ElbClient, ID string) (*elb_model.ShowLoadbalan
 
 func ListListeners(client *elb.ElbClient) (*elb_model.ListListenersResponse, error) {
 	request := &elb_model.ListListenersRequest{
-		Limit: utils.GetPtr(int32(1000)),
+		Limit: utils.Pointer(int32(1000)),
 	}
 	res, err := client.ListListeners(request)
 	if err != nil {

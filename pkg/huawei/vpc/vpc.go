@@ -10,11 +10,9 @@ import (
 )
 
 var (
-	DefaultVpcCIDR              = "10.224.0.0/16"
-	DefaultSubnetCIDR           = "10.224.0.0/16"
-	DefaultSubnetGateway        = "10.224.0.1"
-	DefaultContainerNetworkMode = "eni"
-	DefaultContainerNetworkCIDR = "10.101.0.0/16"
+	DefaultVpcCIDR       = "10.224.0.0/16"
+	DefaultSubnetCIDR    = "10.224.0.0/16"
+	DefaultSubnetGateway = "10.224.0.1"
 )
 
 func NewVpcClient(c *common.ClientAuth) *vpc.VpcClient {

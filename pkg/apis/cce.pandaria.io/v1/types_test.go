@@ -3,10 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
-
-	"github.com/rancher/wrangler/pkg/yaml"
 )
 
 func Test_CCEClusterConfig_Create(t *testing.T) {
@@ -16,7 +13,7 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 			Category:               "CCE",
 			ClusterID:              "aaa-bbb-ccc",
 			Imported:               false,
-			Name:                   "cce-create-1",
+			Name:                   "cce-test",
 			Labels: map[string]string{
 				"key":  "value",
 				"key2": "value2",
@@ -47,7 +44,7 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 					Ca: "",
 				},
 			},
-			BillingMode:          int32(0),
+			BillingMode:          0,
 			KubernetesSvcIPRange: "10.3.4.0/24",
 			Tags: map[string]string{
 				"cluster-key": "cluster-value",
@@ -66,7 +63,7 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 				},
 			},
 			NatGateway: CCENatGateway{
-				Enabled: true,
+				Enabled: false,
 				SNatRuleEIP: CCEEip{
 					Iptype: "5_bgp",
 					Bandwidth: CCEEipBandwidth{
@@ -127,8 +124,8 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 					InitialNodeCount: 1,
 					Autoscaling: CCENodePoolNodeAutoscaling{
 						Enable:                false,
-						MinNodeCount:          1,
-						MaxNodeCount:          1,
+						MinNodeCount:          0,
+						MaxNodeCount:          0,
 						ScaleDownCooldownTime: 0,
 						Priority:              0,
 					},
@@ -147,48 +144,4 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 		return
 	}
 	fmt.Print(string(o))
-}
-
-func Test_CCEClusterConfig_Create2(t *testing.T) {
-	// convert create-example yaml spec to json
-	d, err := os.ReadFile("../../../../examples/create-example.yaml")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	var tmp any
-	err = yaml.Unmarshal(d, &tmp)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	config := tmp.(map[string]any)
-	data, err := json.MarshalIndent(config["spec"], "", "    ")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	fmt.Printf("%v\n", string(data))
-}
-
-func Test_CCEClusterConfig_Import2(t *testing.T) {
-	// convert create-example yaml spec to json
-	d, err := os.ReadFile("../../../../examples/import-example.yaml")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	var tmp any
-	err = yaml.Unmarshal(d, &tmp)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	config := tmp.(map[string]any)
-	data, err := json.MarshalIndent(config["spec"], "", "    ")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	fmt.Printf("%v\n", string(data))
 }

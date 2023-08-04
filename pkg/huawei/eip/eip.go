@@ -27,11 +27,11 @@ func CreatePublicIP(
 			Id:         nil,
 			ShareType:  model.GetCreatePublicipBandwidthOptionShareTypeEnum().PER,
 			Size:       &param.Bandwidth.Size,
-			Name:       utils.GetPtr(common.GenResourceName("bandwidth")),
+			Name:       utils.Pointer(common.GenResourceName("bandwidth")),
 		},
 		Publicip: &model.CreatePublicipOption{
 			Type:  param.Iptype,
-			Alias: utils.GetPtr(common.GenResourceName("eip")),
+			Alias: utils.Pointer(common.GenResourceName("eip")),
 		},
 	}
 	var chargeMode model.CreatePublicipBandwidthOptionChargeMode

@@ -37,8 +37,7 @@ func Test_ListNodes(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	o, _ := json.MarshalIndent(nodes.Items, "", "    ")
-	fmt.Printf("nodes.Items: \n%v\n", string(o))
+	fmt.Printf("nodes.Items: \n%v\n", utils.PrintObject(nodes.Items))
 }
 
 func Test_ShowCluster(t *testing.T) {

@@ -109,7 +109,7 @@ func (h *Handler) ensureCCEClusterDeletable(
 				"cluster": config.Name,
 				"phase":   "remove",
 			}).Infof("waiting for node [%s] status: %v",
-				utils.GetValue(node.Metadata.Name), node.Status.Phase.Value())
+				utils.Value(node.Metadata.Name), node.Status.Phase.Value())
 			return config, true, nil
 		}
 	}
@@ -147,7 +147,7 @@ func (h *Handler) deleteCCECluster(
 	if cluster == nil || cluster.Status == nil || cluster.Metadata == nil {
 		return config, false, fmt.Errorf("cce.GetCluster returns invalid data")
 	}
-	switch utils.GetValue(cluster.Status.Phase) {
+	switch utils.Value(cluster.Status.Phase) {
 	case cce.ClusterStatusDeleting,
 		cce.ClusterStatusCreating,
 		cce.ClusterStatusUpgrading,
@@ -320,7 +320,7 @@ func (h *Handler) deleteNetworkResources(
 				if v.VpcId == nil || *v.VpcId != vpcID {
 					continue
 				}
-				vpcepsvcID = utils.GetValue(v.Id)
+				vpcepsvcID = utils.Value(v.Id)
 				break
 			}
 		}

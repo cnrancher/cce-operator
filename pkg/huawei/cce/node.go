@@ -42,7 +42,7 @@ func ListNodePools(
 ) (*model.ListNodePoolsResponse, error) {
 	var sdnp *string
 	if showDefaultNP {
-		sdnp = utils.GetPtr("true")
+		sdnp = utils.Pointer("true")
 	}
 	res, err := client.ListNodePools(&model.ListNodePoolsRequest{
 		ClusterId:           clusterID,
@@ -169,7 +169,7 @@ func GetCreateNodePoolRequest(
 				},
 				DataVolumes: make([]model.Volume, 0, len(np.NodeTemplate.DataVolumes)),
 				PublicIP:    &model.NodePublicIp{},
-				Count:       utils.GetPtr(int32(1)),
+				Count:       utils.Pointer(int32(1)),
 				BillingMode: &np.NodeTemplate.BillingMode,
 				ExtendParam: &model.NodeExtendParam{
 					PeriodType:  &np.NodeTemplate.ExtendParam.PeriodType,

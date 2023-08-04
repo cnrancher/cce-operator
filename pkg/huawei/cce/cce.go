@@ -96,8 +96,8 @@ func GetCreateClusterRequest(config *ccev1.CCEClusterConfig) *model.CreateCluste
 	var clusterTags []model.ResourceTag
 	for k, v := range spec.Tags {
 		clusterTags = append(clusterTags, model.ResourceTag{
-			Key:   utils.GetPtr(k),
-			Value: utils.GetPtr(v),
+			Key:   utils.Pointer(k),
+			Value: utils.Pointer(v),
 		})
 	}
 
@@ -236,7 +236,7 @@ func GetUpgradeClusterRequest(config *ccev1.CCEClusterConfig) *model.UpgradeClus
 					Strategy: &model.UpgradeStrategy{
 						Type: "inPlaceRollingUpdate",
 						InPlaceRollingUpdate: &model.InPlaceRollingUpdate{
-							UserDefinedStep: utils.GetPtr(int32(20)),
+							UserDefinedStep: utils.Pointer(int32(20)),
 						},
 					},
 					TargetVersion: config.Spec.Version,

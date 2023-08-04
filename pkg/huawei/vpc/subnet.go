@@ -28,7 +28,7 @@ func CreateSubnet(client *vpc.VpcClient, name, vpcID, pDNS, sDNS string) (*model
 				VpcId:        vpcID,
 				PrimaryDns:   &pDNS,
 				SecondaryDns: &sDNS,
-				DhcpEnable:   utils.GetPtr(true),
+				DhcpEnable:   utils.Pointer(true),
 				Description:  &common.DefaultResourceDescription,
 			},
 		},

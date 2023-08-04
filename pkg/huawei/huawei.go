@@ -12,12 +12,6 @@ type HuaweiError struct {
 	ErrorMessage string `json:"error_message,omitempty"`
 }
 
-type NeutronError struct {
-	Message string `json:"message,omitempty"`
-	Type    string `json:"type,omitempty"`
-	Detail  string `json:"detail,omitempty"`
-}
-
 func NewHuaweiError(err error) (*HuaweiError, error) {
 	var errMsg string
 	if err != nil {

@@ -230,7 +230,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 		}).Infof("created cluster public IP [%s] address [%s]",
-			utils.GetValue(res.Publicip.Alias), utils.GetValue(res.Publicip.PublicIpAddress))
+			utils.Value(res.Publicip.Alias), utils.Value(res.Publicip.PublicIpAddress))
 		// Use the RetryOnConflict to prevent repeated creation of EIP.
 		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
@@ -238,8 +238,8 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 				return err
 			}
 			configUpdate := config.DeepCopy()
-			configUpdate.Status.ClusterExternalIP = utils.GetValue(res.Publicip.PublicIpAddress)
-			configUpdate.Status.CreatedClusterEIPID = utils.GetValue(res.Publicip.Id)
+			configUpdate.Status.ClusterExternalIP = utils.Value(res.Publicip.PublicIpAddress)
+			configUpdate.Status.CreatedClusterEIPID = utils.Value(res.Publicip.Id)
 			config, err = h.cceCC.UpdateStatus(configUpdate)
 			return err
 		}); err != nil {
@@ -295,7 +295,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			}
 			for i := 0; i < len(*nameserver.NsRecords) && i < 2; i++ {
 				ns := (*nameserver.NsRecords)[i]
-				dnsRecords[i] = utils.GetValue(ns.Address)
+				dnsRecords[i] = utils.Value(ns.Address)
 			}
 		}
 		logrus.WithFields(logrus.Fields{
@@ -380,7 +380,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			}
 			for i := 0; i < len(*nameserver.NsRecords) && i < 2; i++ {
 				ns := (*nameserver.NsRecords)[i]
-				dnsRecords[i] = utils.GetValue(ns.Address)
+				dnsRecords[i] = utils.Value(ns.Address)
 			}
 		}
 		logrus.WithFields(logrus.Fields{
@@ -503,8 +503,8 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 			}).Infof("created public IP [%s] address [%s] for SNAT Rule",
-				utils.GetValue(eipRes.Publicip.Alias), utils.GetValue(eipRes.Publicip.PublicIpAddress))
-			snatEipID = utils.GetValue(eipRes.Publicip.Id)
+				utils.Value(eipRes.Publicip.Alias), utils.Value(eipRes.Publicip.PublicIpAddress))
+			snatEipID = utils.Value(eipRes.Publicip.Id)
 			// Use the RetryOnConflict to prevent repeated creation of EIP used by SNAT Rule.
 			if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
@@ -512,7 +512,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 					return err
 				}
 				configUpdate := config.DeepCopy()
-				configUpdate.Status.CreatedSNatRuleEIPID = utils.GetValue(eipRes.Publicip.Id)
+				configUpdate.Status.CreatedSNatRuleEIPID = utils.Value(eipRes.Publicip.Id)
 				config, err = h.cceCC.UpdateStatus(configUpdate)
 				return err
 			}); err != nil {
@@ -564,11 +564,11 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 	if cluster.Status == nil || cluster.Metadata == nil || cluster.Spec == nil {
 		return config, fmt.Errorf("cce.GetCluster returns invalid data")
 	}
-	if utils.GetValue(cluster.Status.Phase) == cce.ClusterStatusUnavailable {
+	if utils.Value(cluster.Status.Phase) == cce.ClusterStatusUnavailable {
 		return config, fmt.Errorf("creation failed for cluster %q: %v",
-			cluster.Metadata.Name, utils.GetValue(cluster.Status.Reason))
+			cluster.Metadata.Name, utils.Value(cluster.Status.Reason))
 	}
-	if utils.GetValue(cluster.Status.Phase) == cce.ClusterStatusAvailable {
+	if utils.Value(cluster.Status.Phase) == cce.ClusterStatusAvailable {
 		if err := h.createCASecret(config); err != nil {
 			return config, fmt.Errorf("createCASecret: %w", err)
 		}
@@ -589,7 +589,7 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 		"cluster": config.Name,
 		"phase":   config.Status.Phase,
 	}).Infof("waiting for cluster [%s] status [%s]",
-		config.Spec.Name, utils.GetValue(cluster.Status.Phase))
+		config.Spec.Name, utils.Value(cluster.Status.Phase))
 	h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
 
 	return config, nil
@@ -622,7 +622,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 			}
 		}
 		if res != nil && res.Spec != nil && res.Status != nil {
-			switch utils.GetValue(res.Status.Phase) {
+			switch utils.Value(res.Status.Phase) {
 			case "Success", "":
 				logrus.WithFields(logrus.Fields{
 					"cluster": config.Name,
@@ -637,7 +637,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 					"cluster": config.Name,
 					"phase":   config.Status.Phase,
 				}).Infof("waiting for cluster [%s] upgrade task status [%s]",
-					config.Spec.Name, utils.GetValue(res.Status.Phase))
+					config.Spec.Name, utils.Value(res.Status.Phase))
 			}
 			h.cceEnqueueAfter(config.Namespace, config.Name, 30*time.Second)
 			return config, nil
@@ -652,7 +652,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	if cluster.Status == nil || cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
 		return config, fmt.Errorf("cce.GetCluster returns invalid data")
 	}
-	switch utils.GetValue(cluster.Status.Phase) {
+	switch utils.Value(cluster.Status.Phase) {
 	case cce.ClusterStatusDeleting,
 		cce.ClusterStatusResizing,
 		cce.ClusterStatusUpgrading:
@@ -660,7 +660,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
 		}).Infof("waiting for cluster [%s] finish status [%s]",
-			config.Spec.Name, utils.GetValue(cluster.Status.Phase))
+			config.Spec.Name, utils.Value(cluster.Status.Phase))
 		if config.Status.Phase != cceConfigUpdatingPhase {
 			configUpdate := config.DeepCopy()
 			configUpdate.Status.Phase = cceConfigUpdatingPhase
@@ -673,16 +673,16 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	}
 	configUpdate := config.DeepCopy()
 	var updateStatus = false
-	if config.Status.AvailableZone != utils.GetValue(cluster.Spec.Az) {
-		configUpdate.Status.AvailableZone = utils.GetValue(cluster.Spec.Az)
+	if config.Status.AvailableZone != utils.Value(cluster.Spec.Az) {
+		configUpdate.Status.AvailableZone = utils.Value(cluster.Spec.Az)
 		updateStatus = true
 	}
 	var updateEndpoints = false
 	if cluster.Status.Endpoints != nil {
 		if len(configUpdate.Status.Endpoints) == len(*cluster.Status.Endpoints) {
 			for i := range *cluster.Status.Endpoints {
-				if configUpdate.Status.Endpoints[i].Type != utils.GetValue((*cluster.Status.Endpoints)[i].Type) ||
-					configUpdate.Status.Endpoints[i].Url != utils.GetValue((*cluster.Status.Endpoints)[i].Url) {
+				if configUpdate.Status.Endpoints[i].Type != utils.Value((*cluster.Status.Endpoints)[i].Type) ||
+					configUpdate.Status.Endpoints[i].Url != utils.Value((*cluster.Status.Endpoints)[i].Url) {
 					updateEndpoints = true
 				}
 			}
@@ -694,8 +694,8 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		configUpdate.Status.Endpoints = nil
 		for _, e := range *cluster.Status.Endpoints {
 			configUpdate.Status.Endpoints = append(configUpdate.Status.Endpoints, ccev1.CCEClusterEndpoints{
-				Url:  utils.GetValue(e.Url),
-				Type: utils.GetValue(e.Type),
+				Url:  utils.Value(e.Url),
+				Type: utils.Value(e.Type),
 			})
 		}
 		updateStatus = true
@@ -747,7 +747,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 				"cluster": config.Name,
 				"phase":   config.Status.Phase,
 			}).Infof("waiting for nodepool %q %q status: %q",
-				np.Metadata.Name, utils.GetValue(np.Metadata.Uid), np.Status.Phase.Value())
+				np.Metadata.Name, utils.Value(np.Metadata.Uid), np.Status.Phase.Value())
 			if config.Status.Phase != cceConfigUpdatingPhase {
 				config = config.DeepCopy()
 				config.Status.Phase = cceConfigUpdatingPhase
@@ -873,8 +873,8 @@ func (h *Handler) updateUpstreamClusterState(
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
 		}).Infof("request to create nodePool [%s] ID [%s]",
-			res.Metadata.Name, utils.GetValue(res.Metadata.Uid))
-		createdNodePoolIDs[res.Metadata.Name] = utils.GetValue(res.Metadata.Uid)
+			res.Metadata.Name, utils.Value(res.Metadata.Uid))
+		createdNodePoolIDs[res.Metadata.Name] = utils.Value(res.Metadata.Uid)
 	}
 	if len(createdNodePoolIDs) != 0 {
 		// Update CreatedNodePoolIDs map to let cce-operator-controller (in Rancher)
@@ -1021,11 +1021,11 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 
 	var clusterCert *cce_model.Clusters
 	for _, c := range *certs.Clusters {
-		if config.Spec.PublicAccess && utils.GetValue(c.Name) == "externalClusterTLSVerify" {
+		if config.Spec.PublicAccess && utils.Value(c.Name) == "externalClusterTLSVerify" {
 			clusterCert = &c
 			break
 		}
-		if utils.GetValue(c.Name) == "internalCluster" {
+		if utils.Value(c.Name) == "internalCluster" {
 			clusterCert = &c
 		}
 	}
@@ -1033,8 +1033,8 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 		return fmt.Errorf("failed to find cluster endpoint")
 	}
 
-	endpoint := utils.GetValue(clusterCert.Cluster.Server)
-	ca := utils.GetValue(clusterCert.Cluster.CertificateAuthorityData)
+	endpoint := utils.Value(clusterCert.Cluster.Server)
+	ca := utils.Value(clusterCert.Cluster.CertificateAuthorityData)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.Name,

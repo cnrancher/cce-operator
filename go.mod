@@ -5,15 +5,15 @@ go 1.19
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
-	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.48
+	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.52
 	github.com/rancher/lasso v0.0.0-20230428185353-36908edf817b
 	github.com/rancher/wrangler v1.1.1
 	github.com/rancher/wrangler-api v0.6.1-0.20200427172631-a7c2f09b783e
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
-	k8s.io/api v0.27.3
-	k8s.io/apimachinery v0.27.3
-	k8s.io/client-go v0.27.3
+	k8s.io/api v0.27.4
+	k8s.io/apimachinery v0.27.4
+	k8s.io/client-go v0.27.4
 )
 
 require (

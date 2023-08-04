@@ -28,10 +28,7 @@ func NewClientAuth(ak, sk, region, projectID string) *ClientAuth {
 	}
 }
 
-// GenResourceName generates the name of resource.
-// vpc: rancher-managed-vpc-[RANDOM_STR]
-// subnet: rancher-managed-subnet-[RANDOM_STR]
 func GenResourceName(name string) string {
 	return fmt.Sprintf("%s-%s-%s",
-		resourceNamePrefix, name, utils.RandomString(5))
+		resourceNamePrefix, name, utils.RandomHex(5))
 }

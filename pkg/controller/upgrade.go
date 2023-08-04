@@ -26,14 +26,14 @@ func (h *Handler) upgradeCluster(
 		"cluster": config.Name,
 		"phase":   config.Status.Phase,
 	}).Infof("start upgrade cluster [%s] to %q, task id [%s]",
-		config.Spec.Name, config.Spec.Version, utils.GetValue(res.Metadata.Uid))
+		config.Spec.Name, config.Spec.Version, utils.Value(res.Metadata.Uid))
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		configUpdate := config.DeepCopy()
-		configUpdate.Status.UpgradeClusterTaskID = utils.GetValue(res.Metadata.Uid)
+		configUpdate.Status.UpgradeClusterTaskID = utils.Value(res.Metadata.Uid)
 		config, err = h.cceCC.UpdateStatus(configUpdate)
 		return err
 	})

@@ -6,17 +6,19 @@
 
 Kubernetes controller for managing [Huawei Cloud Container Engine](https://www.huaweicloud.com/product/cce.html) (CCE) in Rancher.
 
-### Usage
+### Develop
 
-You can build and debug `cce-operator` outside of Rancher by following these steps:
+The easiest way to debug and develop the operator is to replace the default operator on a running Rancher instance with your local one (see [eks-operator](https://github.com/rancher/eks-operator#develop)).
 
-1. Setup a kubernetes cluster and configure the `KUBECONFIG` file:
+You can also build and debug CCE Operator without Rancher by following these steps:
+
+1. Setup a kubernetes cluster and configure the `KUBECONFIG` file.
 
     ```console
     $ export KUBECONFIG="$HOME/.kube/config"
     ```
 
-1. Create a `Opaque` type secret (huawei cloud credential) in namespace `cattle-global-data`:
+1. Create a `Opaque` type secret (huawei cloud credential) in namespace `cattle-global-data`.
 
     ```console
     $ kubectl create namespace cattle-global-data
@@ -27,16 +29,16 @@ You can build and debug `cce-operator` outside of Rancher by following these ste
     kind: Secret
     type: Opaque
     metadata:
-        name: "[secret-name]"
+        name: "cc-test-cce" # Modify the secret name if needed.
         namespace: cattle-global-data
     data:
-        huaweicredentialConfig-accessKey: "[base64 encoded access key]"
-        huaweicredentialConfig-secretKey: "[base64 encoded secret key]"
-        huaweicredentialConfig-projectID: "[base64 encoded project id]"
-        huaweicredentialConfig-regionID: "[base64 encoded region id]"
+        huaweicredentialConfig-accessKey: "[base64_encoded_access_key]"
+        huaweicredentialConfig-secretKey: "[base64_encoded_secret_key]"
+        huaweicredentialConfig-projectID: "[base64_encoded_project_id]"
+        huaweicredentialConfig-regionID: "[base64_encoded_region_id]"
     ```
 
-1. Build the operator executable file:
+1. Clone this project and build the executable binary.
 
     ```console
     $ git clone https://github.com/cnrancher/cce-operator.git && cd cce-operator
@@ -44,29 +46,29 @@ You can build and debug `cce-operator` outside of Rancher by following these ste
     $ go build .
     ```
 
-1. Apply the CRD:
+1. Apply the CRD config file.
 
     ```console
     $ kubectl apply -f ./charts/cce-operator-crd/templates/crds.yaml
     ```
 
-1. Run the operator and create/import CCE cluster:
+1. Run the operator and then apply the example configs to create/import cluster.
 
     ```console
     $ ./cce-operator --debug
     ```
 
-    Modify the `CredentialSecret`, `hostNetwork`, `sshKey` and other configurations in `examples/create-example.yaml` and `examples/import-example.yaml`.
+    Modify the YAML configs in [examples](./examples/) manually such as `huaweiCredentialSecret`, `regionID`, `hostNetwork`, `nodeTemplate.sshKey` etc.
 
-    Launch another terminal for applying the yaml config files:
+    Launch another terminal for applying the YAML config files.
 
     ```console
     $ kubectl apply -f ./examples/create-example.yaml
     ```
 
-### Examples
+### Documents
 
-You can find CRD definition examples and parameter documentation in the [examples/](./examples/) directory.
+The Simplified Chinese documentation of CRD parameters is in the [examples/docs](./examples/docs) directory.
 
 ### LICENSE
 
