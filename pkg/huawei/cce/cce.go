@@ -192,7 +192,7 @@ func GetUpdateClusterRequest(config *ccev1.CCEClusterConfig) *model.UpdateCluste
 		ClusterId: config.Spec.ClusterID,
 		Body: &model.ClusterInformation{
 			Metadata: &model.ClusterMetadataForUpdate{
-				Alias: &config.Spec.Name, // operator does not support update cluster name
+				Alias: &config.Spec.Name,
 			},
 			Spec: &model.ClusterInformationSpec{
 				Description: &config.Spec.Description,

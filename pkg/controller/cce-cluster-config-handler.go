@@ -165,6 +165,7 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		if _, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID); err == nil {
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
+				"phase":   "create",
 			}).Infof("cluster [%s] ID [%s] created, switch to creating phase",
 				config.Spec.Name, config.Spec.ClusterID)
 			config = config.DeepCopy()
@@ -211,6 +212,7 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 	}
 	logrus.WithFields(logrus.Fields{
 		"cluster": config.Name,
+		"phase":   "create",
 	}).Infof("request to create cluster name [%s] ID [%s]",
 		config.Spec.Name, config.Spec.ClusterID)
 	return config, err
@@ -229,6 +231,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("created cluster public IP [%s] address [%s]",
 			utils.Value(res.Publicip.Alias), utils.Value(res.Publicip.PublicIpAddress))
 		// Use the RetryOnConflict to prevent repeated creation of EIP.
@@ -266,6 +269,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 	if config.Spec.HostNetwork.VpcID == "" {
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("VPC ID not provided, will create VPC and subnet")
 		vpcRes, err := vpc.CreateVPC(
 			h.driver.VPC,
@@ -280,6 +284,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("created VPC name [%s] ID [%s]", vpcRes.Vpc.Name, vpcRes.Vpc.Id)
 		dnsServers, err := dns.ListNameServers(h.driver.DNS, config.Spec.RegionID)
 		if err != nil {
@@ -300,6 +305,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("query DNS server of region [%s]: %s, %s",
 			config.Spec.RegionID, dnsRecords[0], dnsRecords[1])
 		subnetRes, err := vpc.CreateSubnet(
@@ -317,6 +323,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("created subnet for VPC [%s]: name [%s] ID [%s]",
 			vpcRes.Vpc.Name, subnetRes.Subnet.Name, subnetRes.Subnet.Id)
 		// Update status.
@@ -361,10 +368,12 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("VPC ID provided [%s], will create subnet for this VPC",
 			config.Spec.HostNetwork.VpcID)
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("querying DNS server of region [%s]", config.Spec.RegionID)
 		dnsServers, err := dns.ListNameServers(h.driver.DNS, config.Spec.RegionID)
 		if err != nil {
@@ -385,6 +394,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("found DNS server of region [%s]: %s, %s",
 			config.Spec.RegionID, dnsRecords[0], dnsRecords[1])
 		subnetRes, err := vpc.CreateSubnet(
@@ -402,6 +412,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("created subnet for VPC [%s]: name [%s] ID [%s]",
 			vpcRes.Vpc.Name, subnetRes.Subnet.Name, subnetRes.Subnet.Id)
 		// Update status.
@@ -444,6 +455,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("VPC [%s] and subnet [%s] are provided",
 			config.Spec.HostNetwork.VpcID, config.Spec.HostNetwork.SubnetID)
 	}
@@ -462,6 +474,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("created NAT Gateway [%s] ID [%s]",
 			natRes.NatGateway.Name, natRes.NatGateway.Id)
 		// Use the RetryOnConflict to prevent repeated creation of NAT Gateway.
@@ -490,6 +503,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			}
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
+				"phase":   "create",
 			}).Infof("use existing EIP ID [%s] for SNAT Rule", snatEipID)
 		} else if config.Status.CreatedSNatRuleEIPID == "" {
 			// Create EIP for SNAT Rule.
@@ -502,6 +516,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			}
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
+				"phase":   "create",
 			}).Infof("created public IP [%s] address [%s] for SNAT Rule",
 				utils.Value(eipRes.Publicip.Alias), utils.Value(eipRes.Publicip.PublicIpAddress))
 			snatEipID = utils.Value(eipRes.Publicip.Id)
@@ -537,6 +552,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
+			"phase":   "create",
 		}).Infof("created SNAT Rule [%s]", snatRuleRes.SnatRule.Id)
 		// Use the RetryOnConflict to prevent repeated creation of SNAT Rule.
 		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
