@@ -17,7 +17,7 @@ func BuildUpstreamClusterState(
 	}
 	if c.Metadata == nil || c.Spec == nil || c.Spec.Type == nil || c.Spec.Category == nil {
 		return nil, fmt.Errorf(
-			"failed to get cluster from CCE API: Metadata or Spec is nil")
+			"BuildUpstreamClusterState failed: cluster spec or metadata is nil")
 	}
 	spec := &ccev1.CCEClusterConfigSpec{
 		HuaweiCredentialSecret: "",
@@ -131,8 +131,8 @@ func BuildUpstreamNodePoolConfigs(
 			PodSecurityGroups:    nil,
 			CustomSecurityGroups: nil,
 		}
-		if np.Spec.NodeTemplate.Login != nil && np.Spec.NodeTemplate.Login.SshKey != nil {
-			config.NodeTemplate.SSHKey = *np.Spec.NodeTemplate.Login.SshKey
+		if np.Spec.NodeTemplate.Login != nil {
+			config.NodeTemplate.SSHKey = utils.Value(np.Spec.NodeTemplate.Login.SshKey)
 		}
 		if np.Spec.NodeTemplate.RootVolume != nil {
 			config.NodeTemplate.RootVolume = ccev1.CCENodeVolume{

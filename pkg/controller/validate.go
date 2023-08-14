@@ -98,6 +98,9 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 		if err != nil {
 			return err
 		}
+		if listClustersRes == nil || listClustersRes.Items == nil {
+			return fmt.Errorf("ListClusters returns invalid data")
+		}
 		for _, cluster := range *listClustersRes.Items {
 			if config.Spec.Name == cluster.Metadata.Name {
 				return fmt.Errorf("cannot create cluster [%s] because a cluster"+

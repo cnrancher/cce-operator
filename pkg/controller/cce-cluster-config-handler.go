@@ -190,7 +190,7 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 			return err
 		}
 		config = config.DeepCopy()
-		config.Spec.ClusterID = *cluster.Metadata.Uid
+		config.Spec.ClusterID = utils.Value(cluster.Metadata.Uid)
 		config, err = h.cceCC.Update(config)
 		return err
 	}); err != nil {
@@ -665,8 +665,8 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	if err != nil {
 		return config, err
 	}
-	if cluster.Status == nil || cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
-		return config, fmt.Errorf("cce.GetCluster returns invalid data")
+	if cluster == nil || cluster.Status == nil || cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
+		return config, fmt.Errorf("GetCluster returns invalid data")
 	}
 	switch utils.Value(cluster.Status.Phase) {
 	case cce.ClusterStatusDeleting,
@@ -920,20 +920,14 @@ func (h *Handler) updateUpstreamClusterState(
 		}).Debugf("nodePool [%s] ID [%s] exists in upstream but not exists in config spec",
 			np.Name, np.ID)
 		// Delete nodePool.
-		res, err := cce.DeleteNodePool(
-			h.driver.CCE, config.Spec.ClusterID, np.ID)
-		if err != nil {
+		if _, err := cce.DeleteNodePool(h.driver.CCE, config.Spec.ClusterID, np.ID); err != nil {
 			return config, err
-		}
-		if res.Metadata == nil {
-			return config, fmt.Errorf("deleteNodePool returns invalid data")
 		}
 		enqueueNodePool = true
 		logrus.WithFields(logrus.Fields{
 			"cluster": config.Name,
 			"phase":   config.Status.Phase,
-		}).Infof("request to delete nodePool [%s] ID [%s]",
-			np.Name, np.ID)
+		}).Infof("request to delete nodePool [%s] ID [%s]", np.Name, np.ID)
 	}
 	if enqueueNodePool {
 		if config.Status.Phase != cceConfigUpdatingPhase {
@@ -950,7 +944,7 @@ func (h *Handler) updateUpstreamClusterState(
 				return config, err
 			}
 		}
-		h.cceEnqueueAfter(config.Namespace, config.Name, 5*time.Second)
+		h.cceEnqueueAfter(config.Namespace, config.Name, 10*time.Second)
 		return config, nil
 	}
 
@@ -981,8 +975,8 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 			if endpoint.Type == nil || endpoint.Url == nil {
 				continue
 			}
-			if *endpoint.Type == "External" {
-				u, err := url.Parse(*endpoint.Url)
+			if utils.Value(endpoint.Type) == "External" {
+				u, err := url.Parse(utils.Value(endpoint.Url))
 				if err != nil {
 					continue
 				}
@@ -1031,8 +1025,8 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 	if err != nil {
 		return err
 	}
-	if certs == nil || len(*certs.Clusters) == 0 {
-		return fmt.Errorf("createCASecret failed: no clusters returned from cce.GetClusterCert")
+	if certs == nil || certs.Clusters == nil || len(*certs.Clusters) == 0 {
+		return fmt.Errorf("createCASecret failed: no clusters returned from GetClusterCert")
 	}
 
 	var clusterCert *cce_model.Clusters
@@ -1046,7 +1040,15 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 		}
 	}
 	if clusterCert == nil {
-		return fmt.Errorf("failed to find cluster endpoint")
+		return fmt.Errorf("createCASecret: failed to find cluster endpoint")
+	}
+	if clusterCert.Cluster == nil {
+		return fmt.Errorf("createCASecret: ClusterCert is nil pointer")
+	}
+
+	if _, err = h.secrets.Get(config.Namespace, config.Name, metav1.GetOptions{}); err == nil {
+		// Secret already created
+		return nil
 	}
 
 	endpoint := utils.Value(clusterCert.Cluster.Server)
@@ -1069,17 +1071,15 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 			"ca":       []byte(ca),
 		},
 	}
-	_, err = h.secrets.Get(config.Namespace, config.Name, metav1.GetOptions{})
-	if err != nil {
-		// Secret does not created yet
-		_, err = h.secrets.Create(secret)
-		logrus.WithFields(logrus.Fields{
-			"cluster": config.Name,
-			"phase":   config.Status.Phase,
-		}).Infof("create secret [%s]", config.Name)
+	if _, err = h.secrets.Create(secret); err != nil {
+		return err
 	}
+	logrus.WithFields(logrus.Fields{
+		"cluster": config.Name,
+		"phase":   config.Status.Phase,
+	}).Infof("create secret [%s]", config.Name)
 
-	return err
+	return nil
 }
 
 // enqueueUpdate enqueues the config if it is already in the updating phase. Otherwise, the

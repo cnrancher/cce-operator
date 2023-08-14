@@ -159,7 +159,7 @@ func (h *Handler) deleteCCECluster(
 			"cluster": config.Name,
 			"phase":   "remove",
 		}).Infof("waiting for cluster [%s] status: %s",
-			config.Spec.Name, *cluster.Status.Phase)
+			config.Spec.Name, utils.Value(cluster.Status.Phase))
 		return config, true, nil
 	}
 
@@ -317,7 +317,7 @@ func (h *Handler) deleteNetworkResources(
 		var vpcepsvcID string
 		if vpceps.EndpointServices != nil && len(*vpceps.EndpointServices) > 0 {
 			for _, v := range *vpceps.EndpointServices {
-				if v.VpcId == nil || *v.VpcId != vpcID {
+				if utils.Value(v.VpcId) != vpcID {
 					continue
 				}
 				vpcepsvcID = utils.Value(v.Id)
