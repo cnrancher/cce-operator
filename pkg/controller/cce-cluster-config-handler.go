@@ -970,24 +970,32 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 		return config, err
 	}
 	var clusterExternalIP string
-	if cluster.Status != nil && cluster.Status.Endpoints != nil {
-		for _, endpoint := range *cluster.Status.Endpoints {
-			if endpoint.Type == nil || endpoint.Url == nil {
+	if cluster == nil || cluster.Status == nil || cluster.Status.Endpoints == nil {
+		return config, fmt.Errorf("ShowCluster returns invalid data, cluster ID [%s]", config.Spec.ClusterID)
+	}
+	for _, endpoint := range *cluster.Status.Endpoints {
+		if endpoint.Type == nil || endpoint.Url == nil {
+			continue
+		}
+		if utils.Value(endpoint.Type) == "External" {
+			u, err := url.Parse(utils.Value(endpoint.Url))
+			if err != nil {
 				continue
 			}
-			if utils.Value(endpoint.Type) == "External" {
-				u, err := url.Parse(utils.Value(endpoint.Url))
-				if err != nil {
-					continue
-				}
-				clusterExternalIP = u.Hostname()
-				logrus.WithFields(logrus.Fields{
-					"cluster": config.Name,
-					"phase":   config.Status.Phase,
-				}).Infof("imported cluster [%s] external IP: %q",
-					config.Spec.Name, clusterExternalIP)
-			}
+			clusterExternalIP = u.Hostname()
+			logrus.WithFields(logrus.Fields{
+				"cluster": config.Name,
+				"phase":   config.Status.Phase,
+			}).Infof("imported cluster [%s] external IP: %q",
+				config.Spec.Name, clusterExternalIP)
 		}
+	}
+	if clusterExternalIP == "" {
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Infof("cluster [%s] does not have external IP address",
+			config.Spec.Name)
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
