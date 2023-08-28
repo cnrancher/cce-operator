@@ -41,7 +41,7 @@ type Handler struct {
 	cceEnqueue      func(namespace, name string)
 	secrets         wranglerv1.SecretClient
 	secretsCache    wranglerv1.SecretCache
-	driver          HuaweiDriver
+	drivers         map[string]*HuaweiDriver
 }
 
 func Register(
@@ -55,6 +55,7 @@ func Register(
 		cceEnqueueAfter: cce.EnqueueAfter,
 		secretsCache:    secrets.Cache(),
 		secrets:         secrets,
+		drivers:         make(map[string]*HuaweiDriver),
 	}
 
 	// Register handlers
@@ -70,8 +71,9 @@ func (h *Handler) OnCCEConfigChanged(_ string, config *ccev1.CCEClusterConfig) (
 		return config, nil
 	}
 
-	if err := h.newDriver(h.secretsCache, &config.Spec); err != nil {
-		return config, fmt.Errorf("error creating new CCE services: %w", err)
+	// Ensure the driver in h.drivers map exists.
+	if err := h.setupHuaweiDriver(&config.Spec); err != nil {
+		return config, err
 	}
 
 	switch config.Status.Phase {
@@ -143,6 +145,7 @@ func (h *Handler) recordError(
 }
 
 func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
 	var err error
 	if config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{}); err != nil {
 		return config, err
@@ -162,7 +165,7 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 	}
 
 	if config.Spec.ClusterID != "" {
-		if _, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID); err == nil {
+		if _, err := cce.ShowCluster(driver.CCE, config.Spec.ClusterID); err == nil {
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
 				"phase":   "create",
@@ -174,7 +177,7 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 		}
 	}
 	// Create cluster.
-	cluster, err := cce.CreateCluster(h.driver.CCE, config)
+	cluster, err := cce.CreateCluster(driver.CCE, config)
 	if err != nil {
 		return config, err
 	}
@@ -219,10 +222,11 @@ func (h *Handler) create(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfi
 }
 
 func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
 	var err error
 	// Create Cluster PublicIP.
 	if config.Spec.PublicAccess && config.Spec.PublicIP.CreateEIP && config.Status.ClusterExternalIP == "" {
-		res, err := eip.CreatePublicIP(h.driver.EIP, &config.Spec.PublicIP.Eip)
+		res, err := eip.CreatePublicIP(driver.EIP, &config.Spec.PublicIP.Eip)
 		if err != nil {
 			return config, err
 		}
@@ -272,7 +276,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			"phase":   "create",
 		}).Infof("VPC ID not provided, will create VPC and subnet")
 		vpcRes, err := vpc.CreateVPC(
-			h.driver.VPC,
+			driver.VPC,
 			common.GenResourceName("vpc"),
 			vpc.DefaultVpcCIDR,
 		)
@@ -286,7 +290,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			"cluster": config.Name,
 			"phase":   "create",
 		}).Infof("created VPC name [%s] ID [%s]", vpcRes.Vpc.Name, vpcRes.Vpc.Id)
-		dnsServers, err := dns.ListNameServers(h.driver.DNS, config.Spec.RegionID)
+		dnsServers, err := dns.ListNameServers(driver.DNS, config.Spec.RegionID)
 		if err != nil {
 			return config, err
 		}
@@ -309,7 +313,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}).Infof("query DNS server of region [%s]: %s, %s",
 			config.Spec.RegionID, dnsRecords[0], dnsRecords[1])
 		subnetRes, err := vpc.CreateSubnet(
-			h.driver.VPC,
+			driver.VPC,
 			common.GenResourceName("subnet"),
 			vpcRes.Vpc.Id,
 			dnsRecords[0],
@@ -359,7 +363,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		// VPC ID provided but subnet ID not provided.
 		// Create a subnet based on the provided VPC.
 		// Ensure provided VPC exists first.
-		vpcRes, err := vpc.ShowVPC(h.driver.VPC, config.Spec.HostNetwork.VpcID)
+		vpcRes, err := vpc.ShowVPC(driver.VPC, config.Spec.HostNetwork.VpcID)
 		if err != nil {
 			return config, err
 		}
@@ -375,7 +379,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			"cluster": config.Name,
 			"phase":   "create",
 		}).Infof("querying DNS server of region [%s]", config.Spec.RegionID)
-		dnsServers, err := dns.ListNameServers(h.driver.DNS, config.Spec.RegionID)
+		dnsServers, err := dns.ListNameServers(driver.DNS, config.Spec.RegionID)
 		if err != nil {
 			return config, err
 		}
@@ -398,7 +402,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}).Infof("found DNS server of region [%s]: %s, %s",
 			config.Spec.RegionID, dnsRecords[0], dnsRecords[1])
 		subnetRes, err := vpc.CreateSubnet(
-			h.driver.VPC,
+			driver.VPC,
 			common.GenResourceName("subnet"),
 			config.Spec.HostNetwork.VpcID,
 			dnsRecords[0],
@@ -445,11 +449,11 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 	} else {
 		// Both VPC ID and subnet ID are provided.
 		// Ensure provided VPC and subnet exists.
-		_, err = vpc.ShowVPC(h.driver.VPC, config.Spec.HostNetwork.VpcID)
+		_, err = vpc.ShowVPC(driver.VPC, config.Spec.HostNetwork.VpcID)
 		if err != nil {
 			return config, err
 		}
-		_, err = vpc.ShowSubnet(h.driver.VPC, config.Spec.HostNetwork.SubnetID)
+		_, err = vpc.ShowSubnet(driver.VPC, config.Spec.HostNetwork.SubnetID)
 		if err != nil {
 			return config, err
 		}
@@ -465,7 +469,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 
 	// Configure NAT Gateway.
 	if config.Spec.NatGateway.Enabled && config.Status.CreatedNatGatewayID == "" {
-		natRes, err := nat.CreateNatGateway(h.driver.NAT, common.GenResourceName("nat"), &config.Spec)
+		natRes, err := nat.CreateNatGateway(driver.NAT, common.GenResourceName("nat"), &config.Spec)
 		if err != nil {
 			return config, err
 		}
@@ -498,7 +502,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if config.Spec.NatGateway.ExistingEIPID != "" {
 			// Existing EIP ID provided, ensure provided EIP exists.
 			snatEipID = config.Spec.NatGateway.ExistingEIPID
-			if _, err = eip.ShowPublicip(h.driver.EIP, snatEipID); err != nil {
+			if _, err = eip.ShowPublicip(driver.EIP, snatEipID); err != nil {
 				return config, err
 			}
 			logrus.WithFields(logrus.Fields{
@@ -507,7 +511,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			}).Infof("use existing EIP ID [%s] for SNAT Rule", snatEipID)
 		} else if config.Status.CreatedSNatRuleEIPID == "" {
 			// Create EIP for SNAT Rule.
-			eipRes, err := eip.CreatePublicIP(h.driver.EIP, &config.Spec.PublicIP.Eip)
+			eipRes, err := eip.CreatePublicIP(driver.EIP, &config.Spec.PublicIP.Eip)
 			if err != nil {
 				return config, err
 			}
@@ -538,7 +542,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		}
 
 		snatRuleRes, err := nat.CreateNatGatewaySnatRule(
-			h.driver.NAT,
+			driver.NAT,
 			config.Status.CreatedNatGatewayID,
 			config.Spec.HostNetwork.SubnetID,
 			snatEipID,
@@ -573,7 +577,8 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 }
 
 func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
-	cluster, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID)
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
+	cluster, err := cce.ShowCluster(driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		return config, err
 	}
@@ -612,6 +617,7 @@ func (h *Handler) waitForCreationComplete(config *ccev1.CCEClusterConfig) (*ccev
 }
 
 func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
 	if err := validateUpdate(config); err != nil {
 		// validation failed, will be considered a failing update until resolved
 		config = config.DeepCopy()
@@ -626,7 +632,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 
 	// Check cluster upgrade status.
 	if config.Status.UpgradeClusterTaskID != "" {
-		res, err := cce.ShowUpgradeClusterTask(h.driver.CCE, config.Spec.ClusterID, config.Status.UpgradeClusterTaskID)
+		res, err := cce.ShowUpgradeClusterTask(driver.CCE, config.Spec.ClusterID, config.Status.UpgradeClusterTaskID)
 		if err != nil {
 			hwerr, _ := huawei.NewHuaweiError(err)
 			if hwerr.StatusCode == 404 {
@@ -661,7 +667,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	}
 
 	// Check cluster status.
-	cluster, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID)
+	cluster, err := cce.ShowCluster(driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		return config, err
 	}
@@ -736,7 +742,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	}
 
 	// Get the created node pools and build upstream cluster state.
-	nodePools, err := cce.ListNodePools(h.driver.CCE, config.Spec.ClusterID, false)
+	nodePools, err := cce.ListNodePools(driver.CCE, config.Spec.ClusterID, false)
 	if err != nil {
 		return config, err
 	}
@@ -791,6 +797,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 func (h *Handler) updateUpstreamClusterState(
 	upstreamSpec *ccev1.CCEClusterConfigSpec, config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, error) {
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
 	var err error
 	if config.Spec.Imported {
 		if config.Status.Phase != cceConfigActivePhase {
@@ -827,7 +834,7 @@ func (h *Handler) updateUpstreamClusterState(
 	}
 
 	// Update cluster info.
-	if _, err = cce.UpdateCluster(h.driver.CCE, config); err != nil {
+	if _, err = cce.UpdateCluster(driver.CCE, config); err != nil {
 		return config, err
 	}
 	// Update nodePool infos.
@@ -835,7 +842,7 @@ func (h *Handler) updateUpstreamClusterState(
 		if np.ID == "" {
 			continue
 		}
-		_, err := cce.UpdateNodePool(h.driver.CCE, config.Spec.ClusterID, &np)
+		_, err := cce.UpdateNodePool(driver.CCE, config.Spec.ClusterID, &np)
 		if err != nil {
 			return config, err
 		}
@@ -877,7 +884,7 @@ func (h *Handler) updateUpstreamClusterState(
 			continue
 		}
 		// Create nodePool if not found in upstream spec.
-		res, err := cce.CreateNodePool(h.driver.CCE, config.Spec.ClusterID, np)
+		res, err := cce.CreateNodePool(driver.CCE, config.Spec.ClusterID, np)
 		if err != nil {
 			return config, err
 		}
@@ -920,7 +927,7 @@ func (h *Handler) updateUpstreamClusterState(
 		}).Debugf("nodePool [%s] ID [%s] exists in upstream but not exists in config spec",
 			np.Name, np.ID)
 		// Delete nodePool.
-		if _, err := cce.DeleteNodePool(h.driver.CCE, config.Spec.ClusterID, np.ID); err != nil {
+		if _, err := cce.DeleteNodePool(driver.CCE, config.Spec.ClusterID, np.ID); err != nil {
 			return config, err
 		}
 		enqueueNodePool = true
@@ -965,7 +972,8 @@ func (h *Handler) updateUpstreamClusterState(
 }
 
 func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClusterConfig, error) {
-	cluster, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID)
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
+	cluster, err := cce.ShowCluster(driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		return config, err
 	}
@@ -1029,7 +1037,8 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 
 // createCASecret creates a secret containing a CA and endpoint for use in generating a kubeconfig file.
 func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
-	certs, err := cce.GetClusterCert(h.driver.CCE, config.Spec.ClusterID, 0)
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
+	certs, err := cce.GetClusterCert(driver.CCE, config.Spec.ClusterID, 0)
 	if err != nil {
 		return err
 	}

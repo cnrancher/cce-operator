@@ -25,9 +25,12 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 		}).Infof("cluster [%s] is imported, will not delete CCE cluster", config.Name)
 		return config, nil
 	}
-	if err := h.newDriver(h.secretsCache, &config.Spec); err != nil {
-		return config, fmt.Errorf("error creating new CCE services: %w", err)
+
+	// Ensure the driver in h.drivers map exists.
+	if err := h.setupHuaweiDriver(&config.Spec); err != nil {
+		return config, err
 	}
+
 	logrus.WithFields(logrus.Fields{
 		"cluster": config.Name,
 		"phase":   "remove",
@@ -78,12 +81,13 @@ func (h *Handler) OnCCEConfigRemoved(_ string, config *ccev1.CCEClusterConfig) (
 func (h *Handler) ensureCCEClusterDeletable(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
 	// Cluster was already deleted.
 	if config.Spec.ClusterID == "" {
 		return config, false, nil
 	}
 
-	nodes, err := cce.ListNodes(h.driver.CCE, config.Spec.ClusterID)
+	nodes, err := cce.ListNodes(driver.CCE, config.Spec.ClusterID)
 	if err != nil {
 		// Cluster was deleted and failed to query nodes.
 		return config, false, nil
@@ -119,12 +123,13 @@ func (h *Handler) ensureCCEClusterDeletable(
 func (h *Handler) deleteCCECluster(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
 	if config.Spec.ClusterID == "" {
 		// Cluster was already deleted.
 		return config, false, nil
 	}
 
-	cluster, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID)
+	cluster, err := cce.ShowCluster(driver.CCE, config.Spec.ClusterID)
 	if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 		// Cluster deleted, update status.
 		logrus.WithFields(logrus.Fields{
@@ -163,7 +168,7 @@ func (h *Handler) deleteCCECluster(
 		return config, true, nil
 	}
 
-	if _, err = cce.DeleteCluster(h.driver.CCE, config.Spec.ClusterID); err != nil {
+	if _, err = cce.DeleteCluster(driver.CCE, config.Spec.ClusterID); err != nil {
 		return config, false, err
 	}
 	logrus.WithFields(logrus.Fields{
@@ -177,11 +182,12 @@ func (h *Handler) deleteCCECluster(
 func (h *Handler) deleteNetworkResources(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, bool, error) {
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
 	var err error
 	if config.Status.CreatedNatGatewayID != "" {
 		natID := config.Status.CreatedNatGatewayID
 		// Delete SNAT Rules before delete NAT Gateway.
-		snatRulesRes, err := nat.ListNatGatewaySnatRules(h.driver.NAT, []string{natID})
+		snatRulesRes, err := nat.ListNatGatewaySnatRules(driver.NAT, []string{natID})
 		if err != nil {
 			return config, false, err
 		}
@@ -189,7 +195,7 @@ func (h *Handler) deleteNetworkResources(
 			return config, false, fmt.Errorf("ListNatGatewaySnatRules returns invalid data")
 		}
 		for _, sr := range *snatRulesRes.SnatRules {
-			if _, err = nat.DeleteNatGatewaySnatRule(h.driver.NAT, sr.Id, natID); err != nil {
+			if _, err = nat.DeleteNatGatewaySnatRule(driver.NAT, sr.Id, natID); err != nil {
 				return config, false, err
 			}
 			logrus.WithFields(logrus.Fields{
@@ -204,7 +210,7 @@ func (h *Handler) deleteNetworkResources(
 		}
 
 		// Delete NatGateway.
-		_, err = nat.ShowNatGateway(h.driver.NAT, config.Status.CreatedNatGatewayID)
+		_, err = nat.ShowNatGateway(driver.NAT, config.Status.CreatedNatGatewayID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
@@ -218,7 +224,7 @@ func (h *Handler) deleteNetworkResources(
 		} else if err != nil {
 			return config, false, err
 		}
-		_, err = nat.DeleteNatGateway(h.driver.NAT, natID)
+		_, err = nat.DeleteNatGateway(driver.NAT, natID)
 		if err != nil {
 			return config, false, err
 		}
@@ -233,7 +239,7 @@ func (h *Handler) deleteNetworkResources(
 	// Delete EIP.
 	if config.Status.CreatedClusterEIPID != "" {
 		eipID := config.Status.CreatedClusterEIPID
-		_, err = eip.ShowPublicip(h.driver.EIP, eipID)
+		_, err = eip.ShowPublicip(driver.EIP, eipID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			config = config.DeepCopy()
 			config.Status.CreatedClusterEIPID = ""
@@ -246,7 +252,7 @@ func (h *Handler) deleteNetworkResources(
 		} else if err != nil {
 			return config, false, err
 		}
-		if _, err = eip.DeletePublicIP(h.driver.EIP, eipID); err != nil {
+		if _, err = eip.DeletePublicIP(driver.EIP, eipID); err != nil {
 			return config, false, err
 		}
 		logrus.WithFields(logrus.Fields{
@@ -257,7 +263,7 @@ func (h *Handler) deleteNetworkResources(
 	}
 	if config.Status.CreatedSNatRuleEIPID != "" {
 		eipID := config.Status.CreatedSNatRuleEIPID
-		_, err = eip.ShowPublicip(h.driver.EIP, eipID)
+		_, err = eip.ShowPublicip(driver.EIP, eipID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			config = config.DeepCopy()
 			config.Status.CreatedSNatRuleEIPID = ""
@@ -270,7 +276,7 @@ func (h *Handler) deleteNetworkResources(
 		} else if err != nil {
 			return config, false, err
 		}
-		if _, err = eip.DeletePublicIP(h.driver.EIP, eipID); err != nil {
+		if _, err = eip.DeletePublicIP(driver.EIP, eipID); err != nil {
 			return config, false, err
 		}
 		logrus.WithFields(logrus.Fields{
@@ -285,7 +291,7 @@ func (h *Handler) deleteNetworkResources(
 		subnetID = config.Status.CreatedSubnetID
 	)
 	if subnetID != "" {
-		_, err = vpc.ShowSubnet(h.driver.VPC, subnetID)
+		_, err = vpc.ShowSubnet(driver.VPC, subnetID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
@@ -298,7 +304,7 @@ func (h *Handler) deleteNetworkResources(
 		} else if err != nil {
 			return config, false, err
 		}
-		_, err := vpc.DeleteSubnet(h.driver.VPC, vpcID, subnetID)
+		_, err := vpc.DeleteSubnet(driver.VPC, vpcID, subnetID)
 		if err != nil {
 			return config, false, err
 		}
@@ -309,7 +315,7 @@ func (h *Handler) deleteNetworkResources(
 		return config, true, nil
 	}
 	if vpcID != "" {
-		vpceps, err := vpcep.ListEndpointService(h.driver.VPCEP, "")
+		vpceps, err := vpcep.ListEndpointService(driver.VPCEP, "")
 		if err != nil {
 			return config, false, err
 		}
@@ -326,7 +332,7 @@ func (h *Handler) deleteNetworkResources(
 		}
 		// VPC has associated VpcEndpointService, delete vpcepsvc before delete VPC.
 		if vpcepsvcID != "" {
-			_, err = vpcep.DeleteVpcepService(h.driver.VPCEP, vpcepsvcID)
+			_, err = vpcep.DeleteVpcepService(driver.VPCEP, vpcepsvcID)
 			if err != nil {
 				return config, false, err
 			}
@@ -336,7 +342,7 @@ func (h *Handler) deleteNetworkResources(
 			}).Infof("request to delete VpcEndpointService [%s]", vpcepsvcID)
 			return config, true, nil
 		}
-		_, err = vpc.ShowVPC(h.driver.VPC, vpcID)
+		_, err = vpc.ShowVPC(driver.VPC, vpcID)
 		if hwerr, _ := huawei.NewHuaweiError(err); hwerr.StatusCode == 404 {
 			logrus.WithFields(logrus.Fields{
 				"cluster": config.Name,
@@ -349,7 +355,7 @@ func (h *Handler) deleteNetworkResources(
 		} else if err != nil {
 			return config, false, err
 		}
-		_, err = vpc.DeleteVPC(h.driver.VPC, vpcID)
+		_, err = vpc.DeleteVPC(driver.VPC, vpcID)
 		if err != nil {
 			return config, false, err
 		}

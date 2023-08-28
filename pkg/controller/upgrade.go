@@ -15,7 +15,8 @@ import (
 func (h *Handler) upgradeCluster(
 	config *ccev1.CCEClusterConfig,
 ) (*ccev1.CCEClusterConfig, error) {
-	res, err := cce.UpgradeCluster(h.driver.CCE, config)
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
+	res, err := cce.UpgradeCluster(driver.CCE, config)
 	if err != nil {
 		return config, err
 	}
