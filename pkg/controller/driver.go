@@ -21,6 +21,7 @@ import (
 	huawei_vpc "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpc/v2"
 	huawei_vpcep "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/vpcep/v1"
 	wranglerv1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
+	"github.com/sirupsen/logrus"
 )
 
 type HuaweiDriver struct {
@@ -33,6 +34,23 @@ type HuaweiDriver struct {
 	NAT   *huawei_nat.NatClient
 }
 
+func (h *Handler) setupHuaweiDriver(spec *ccev1.CCEClusterConfigSpec) error {
+	auth, err := NewHuaweiClientAuth(h.secretsCache, spec)
+	if err != nil {
+		// Failed to initialize driver from cloud credential, the credential may
+		// deleted by user manually.
+		// Check if the driver is created and cached in drivers map.
+		if _, ok := h.drivers[spec.HuaweiCredentialSecret]; !ok {
+			return fmt.Errorf("failed to create HuaweiClientAuth: %w", err)
+		}
+		logrus.Warnf("HuaweiClientAuth create failed: [%v], using driver cache", err)
+		return nil
+	}
+	// Update the driver cached in map.
+	h.drivers[spec.HuaweiCredentialSecret] = NewHuaweiDriver(auth)
+	return nil
+}
+
 func NewHuaweiDriver(auth *common.ClientAuth) *HuaweiDriver {
 	return &HuaweiDriver{
 		CCE:   cce.NewCCEClient(auth),
@@ -43,16 +61,6 @@ func NewHuaweiDriver(auth *common.ClientAuth) *HuaweiDriver {
 		DNS:   dns.NewDnsClient(auth),
 		NAT:   nat.NewNatClient(auth),
 	}
-}
-
-func (h *Handler) newDriver(secretsCache wranglerv1.SecretCache, spec *ccev1.CCEClusterConfigSpec) error {
-	auth, err := NewHuaweiClientAuth(secretsCache, spec)
-	if err != nil {
-		return err
-	}
-	h.driver = *NewHuaweiDriver(auth)
-
-	return nil
 }
 
 func NewHuaweiClientAuth(

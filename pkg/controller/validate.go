@@ -54,6 +54,7 @@ func validateNodePool(config *ccev1.CCEClusterConfig) error {
 }
 
 func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
+	driver := h.drivers[config.Spec.HuaweiCredentialSecret]
 	// Check for existing cceclusterconfigs with the same display name
 	cceConfigs, err := h.cceCC.List(config.Namespace, metav1.ListOptions{})
 	if err != nil {
@@ -80,7 +81,7 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 		if config.Spec.ClusterID == "" {
 			return fmt.Errorf(cannotBeEmptyError, "clusterID", config.Name)
 		}
-		_, err := cce.ShowCluster(h.driver.CCE, config.Spec.ClusterID)
+		_, err := cce.ShowCluster(driver.CCE, config.Spec.ClusterID)
 		if err != nil {
 			hwerr, _ := huawei.NewHuaweiError(err)
 			if hwerr.StatusCode == 404 {
@@ -94,7 +95,7 @@ func (h *Handler) validateCreate(config *ccev1.CCEClusterConfig) error {
 		if config.Spec.ClusterID != "" {
 			return nil
 		}
-		listClustersRes, err := cce.ListClusters(h.driver.CCE)
+		listClustersRes, err := cce.ListClusters(driver.CCE)
 		if err != nil {
 			return err
 		}
