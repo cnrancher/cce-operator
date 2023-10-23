@@ -53,13 +53,19 @@ func clusterUpgradeable(oldVer, newVer string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("invalid version %q: %w", oldVer, err)
 	}
-	ov := semver.New(t.Major(), t.Minor(), 0, "", "")
+	ov, err := semver.NewVersion(fmt.Sprintf("%v.%v.0", t.Major(), t.Minor()))
+	if err != nil {
+		return false, fmt.Errorf("invalid version %q: %w", oldVer, err)
+	}
 
 	t, err = semver.NewVersion(newVer)
 	if err != nil {
 		return false, fmt.Errorf("invalid version %q: %w", newVer, err)
 	}
-	nv := semver.New(t.Major(), t.Minor(), 0, "", "")
+	nv, err := semver.NewVersion(fmt.Sprintf("%v.%v.0", t.Major(), t.Minor()))
+	if err != nil {
+		return false, fmt.Errorf("invalid version %q: %w", oldVer, err)
+	}
 
 	// Compare the major minor version only.
 	if ov.Compare(nv) == 0 {
