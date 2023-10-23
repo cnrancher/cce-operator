@@ -18,7 +18,7 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 ENV DAPPER_ENV REPO TAG DRONE_TAG CROSS
-ENV DAPPER_SOURCE /go/src/github.com/STARRY-S/cce-operator/
+ENV DAPPER_SOURCE /go/src/github.com/cnrancher/cce-operator/
 ENV DAPPER_OUTPUT ./bin ./dist
 ENV DAPPER_DOCKER_SOCKET true
 WORKDIR ${DAPPER_SOURCE}

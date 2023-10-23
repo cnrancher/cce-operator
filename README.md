@@ -70,9 +70,18 @@ You can also build and debug CCE Operator without Rancher by following these ste
 
 The Simplified Chinese documentation of CRD parameters is in the [examples/docs](./examples/docs) directory.
 
-### LICENSE
+### Versions
 
-Copyright 2023 [Rancher Labs, Inc](https://rancher.com).
+The version correspondence between CCE Operator and Rancher is as follows.
+
+| cce-operator | Rancher  |
+|:------------:|:--------:|
+| `v0.1.x`     | N/A      |
+| `v0.2.x`     | `v2.6.x` |
+| `v0.3.x`     | `v2.7.x` |
+| `v0.4.x`     | `v2.8.x` |
+
+### LICENSE
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
