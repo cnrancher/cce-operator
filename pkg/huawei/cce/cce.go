@@ -261,6 +261,25 @@ func ShowUpgradeClusterTask(
 	return res, err
 }
 
+func ResizeCluster(
+	client *cce.CceClient, ID, flavor, isAutoPay string,
+) (*model.ResizeClusterResponse, error) {
+	req := &model.ResizeClusterRequest{
+		ClusterId: ID,
+		Body: &model.ResizeClusterRequestBody{
+			FlavorResize: flavor,
+			ExtendParam: &model.ResizeClusterRequestExtendParam{
+				IsAutoPay: &isAutoPay,
+			},
+		},
+	}
+	res, err := client.ResizeCluster(req)
+	if err != nil {
+		logrus.Debugf("ResizeCluster failed: %v", utils.PrintObject(req))
+	}
+	return res, err
+}
+
 func DeleteCluster(client *cce.CceClient, ID string) (*model.DeleteClusterResponse, error) {
 	res, err := client.DeleteCluster(&model.DeleteClusterRequest{
 		ClusterId: ID,

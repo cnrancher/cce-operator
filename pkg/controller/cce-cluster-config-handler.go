@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	ccev1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	ccecontrollers "github.com/cnrancher/cce-operator/pkg/generated/controllers/cce.pandaria.io/v1"
 	"github.com/cnrancher/cce-operator/pkg/huawei"
@@ -630,8 +631,29 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		return config, err
 	}
 
+	// Get cluster status.
+	cluster, err := cce.ShowCluster(driver.CCE, config.Spec.ClusterID)
+	if err != nil {
+		return config, err
+	}
+	if cluster == nil || cluster.Status == nil || cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
+		return config, fmt.Errorf("GetCluster returns invalid data")
+	}
+
 	// Check cluster upgrade status.
 	if config.Status.UpgradeClusterTaskID != "" {
+		ok, err := clusterUpgradeable(config.Spec.Version, *cluster.Spec.Version)
+		if err != nil {
+			return config, err
+		}
+		if !ok {
+			// Delete UpgradeClusterTaskID if the config cluster version match
+			// the upstream cluster version.
+			config = config.DeepCopy()
+			config.Status.UpgradeClusterTaskID = ""
+			return h.cceCC.UpdateStatus(config)
+		}
+
 		res, err := cce.ShowUpgradeClusterTask(driver.CCE, config.Spec.ClusterID, config.Status.UpgradeClusterTaskID)
 		if err != nil {
 			hwerr, _ := huawei.NewHuaweiError(err)
@@ -649,11 +671,14 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 				logrus.WithFields(logrus.Fields{
 					"cluster": config.Name,
 					"phase":   config.Status.Phase,
-				}).Infof("cluster [%s] finished upgrade",
-					config.Spec.Name)
+				}).Infof("cluster [%s] upgrade to [%v]",
+					config.Spec.Name, utils.Value(cluster.Spec.Version))
 				config = config.DeepCopy()
 				config.Status.UpgradeClusterTaskID = ""
 				return h.cceCC.UpdateStatus(config)
+			case "Failed":
+				return config, fmt.Errorf("failed to upgrade cluster [%s] to %v, status [%s]",
+					config.Spec.Name, config.Spec.Version, utils.Value(res.Status.Phase))
 			default:
 				logrus.WithFields(logrus.Fields{
 					"cluster": config.Name,
@@ -667,13 +692,6 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 	}
 
 	// Check cluster status.
-	cluster, err := cce.ShowCluster(driver.CCE, config.Spec.ClusterID)
-	if err != nil {
-		return config, err
-	}
-	if cluster == nil || cluster.Status == nil || cluster.Spec == nil || cluster.Spec.HostNetwork == nil {
-		return config, fmt.Errorf("GetCluster returns invalid data")
-	}
 	switch utils.Value(cluster.Status.Phase) {
 	case cce.ClusterStatusDeleting,
 		cce.ClusterStatusResizing,
@@ -816,8 +834,10 @@ func (h *Handler) updateUpstreamClusterState(
 		return config, nil
 	}
 
-	// Update security group ID for created cluster.
-	if config.Spec.HostNetwork.SecurityGroup != upstreamSpec.HostNetwork.SecurityGroup {
+	// Init security group ID for created cluster if the security group wasn't
+	// provided when creating the cluster.
+	if config.Spec.HostNetwork.SecurityGroup == "" &&
+		config.Spec.HostNetwork.SecurityGroup != upstreamSpec.HostNetwork.SecurityGroup {
 		configUpdate := config.DeepCopy()
 		configUpdate.Spec.HostNetwork.SecurityGroup = upstreamSpec.HostNetwork.SecurityGroup
 		config, err = h.cceCC.Update(configUpdate)
@@ -831,6 +851,57 @@ func (h *Handler) updateUpstreamClusterState(
 		return config, err
 	} else if ok {
 		return h.upgradeCluster(config)
+	}
+	// Check cluster flavor is resizable.
+	var clusterResizable = false
+	if config.Spec.Flavor != "" && config.Spec.Flavor != upstreamSpec.Flavor {
+		cv, err := semver.NewVersion(config.Spec.Version)
+		if err != nil {
+			return config, err
+		}
+		minVersion := semver.New(1, 15, 0, "", "")
+		if cv.Compare(minVersion) >= 0 {
+			clusterResizable = true
+		}
+	}
+	if clusterResizable {
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Infof("cluster [%s] flavor change detected: %v -> %v",
+			config.Spec.Name, upstreamSpec.Flavor, config.Spec.Flavor)
+
+		res, err := cce.ResizeCluster(
+			driver.CCE,
+			config.Spec.ClusterID,
+			config.Spec.Flavor,
+			config.Spec.ExtendParam.IsAutoPay,
+		)
+		if err != nil {
+			return config, err
+		}
+		if res == nil || res.JobID == nil {
+			return config, fmt.Errorf("ResizeCluster returns invalid data")
+		}
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Infof("start resize cluster [%s] job ID %q",
+			config.Spec.Name, utils.Value(res.JobID))
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			config, err = h.cceCC.Get(config.Namespace, config.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			configUpdate := config.DeepCopy()
+			configUpdate.Status.ResizeClusterJobID = utils.Value(res.JobID)
+			config, err = h.cceCC.UpdateStatus(configUpdate)
+			return err
+		})
+		if err != nil {
+			return config, err
+		}
+		return h.enqueueUpdate(config)
 	}
 
 	// Update cluster info.
