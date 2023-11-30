@@ -162,10 +162,21 @@
     "name": "example-update", // 集群名称
     "huaweiCredentialSecret": "cattle-global-data:cc-xxxxx", // 更新云凭证
     "description": "", // 更新集群描述
-    // "version": "v1.25" // 集群升级（暂不支持）
+    // 集群升级，直接改动集群版本即可升级。例如将 1.25 改为 1.27，即升级至 1.27 版本。
+    // 需要注意集群升级前需要手动检查所有插件必须运行正常（没有未就绪的工作负载），否则会造成升级失败。
+    "version": "v1.25",
     "hostNetwork": {
-        "securityGroup": "SECURITY-GROUP-ID" // Security Group
+        "securityGroup": "SECURITY-GROUP-ID" // 修改节点默认安全组
     },
+    // 变更集群 (Resize) 存在约束限制：https://support.huaweicloud.com/usermanual-cce/cce_10_0403.html
+    // 需要额外注意以下几点：
+    // 1. 变更集群规格不支持修改控制节点数量。例如无法将 s1 修改为 s2
+    // 2. 不支持降低集群规格。例如不能将 medium 降为 small
+    // 3. 单控制节点的集群不允许变更到 1000 节点及以上。例如 s1.small (50 节点) 只能升级到 s1.medium (200 节点)。
+    // Resize 请求可能遇到规格不足：Insufficient resources under expected master specifications 错误。
+    "flavor": "cce.s1.medium", // s1：单控制节点CCE集群。
+                              // s2：多控制节点CCE集群 （高可用）。
+                              // small (最大 50 节点), medium (200 节点), large (1k 节点), xlarge (2k 节点)
     "nodePools": [ // 可编辑节点池数组，用于增加/删除节点池
         {
             "name": "nodepool-1", // 节点池名称，可编辑

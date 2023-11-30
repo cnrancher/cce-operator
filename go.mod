@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
-	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.52
+	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.69
 	github.com/rancher/lasso v0.0.0-20221227210133-6ea88ca2fbcc
 	github.com/rancher/wrangler v1.1.1
 	github.com/rancher/wrangler-api v0.6.1-0.20200427172631-a7c2f09b783e
@@ -48,6 +48,7 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/tjfoc/gmsm v1.4.1 // indirect
 	go.mongodb.org/mongo-driver v1.12.0 // indirect
 	golang.org/x/crypto v0.10.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect

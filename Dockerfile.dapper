@@ -1,11 +1,8 @@
-FROM registry.suse.com/bci/golang:1.20
+FROM registry.suse.com/bci/golang:1.21
 
 ARG DAPPER_HOST_ARCH
 ENV ARCH=${DAPPER_HOST_ARCH}
 
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
-ENV HTTP_PROXY=${HTTP_PROXY} HTTPS_PROXY=${HTTPS_PROXY}
 RUN zypper ref && \
     zypper -n up && \
     zypper -n in vim wget git tar gzip && \
