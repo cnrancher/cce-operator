@@ -1,6 +1,6 @@
 module github.com/cnrancher/cce-operator
 
-go 1.21
+go 1.20
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -11,9 +11,9 @@ require (
 	github.com/rancher/wrangler-api v0.6.1-0.20200427172631-a7c2f09b783e
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
-	k8s.io/api v0.27.8
-	k8s.io/apimachinery v0.27.8
-	k8s.io/client-go v0.27.8
+	k8s.io/api v0.27.4
+	k8s.io/apimachinery v0.27.4
+	k8s.io/client-go v0.27.4
 )
 
 require (
