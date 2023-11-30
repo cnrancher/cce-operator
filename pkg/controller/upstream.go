@@ -41,6 +41,10 @@ func BuildUpstreamClusterState(
 		KubeProxyMode:          c.Spec.KubeProxyMode.Value(),
 		PublicAccess:           false,
 	}
+	if utils.Value(c.Metadata.Alias) != "" && spec.Name != utils.Value(c.Metadata.Alias) {
+		// Set cluster name to edited alias instead of the original name.
+		spec.Name = utils.Value(c.Metadata.Alias)
+	}
 	if c.Spec.HostNetwork != nil {
 		spec.HostNetwork.VpcID = c.Spec.HostNetwork.Vpc
 		spec.HostNetwork.SubnetID = c.Spec.HostNetwork.Subnet

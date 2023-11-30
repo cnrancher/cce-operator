@@ -81,6 +81,7 @@ type CCEClusterConfigStatus struct {
 	CreatedSNatRuleEIPID string `json:"createdSNatRuleEIPID"` // EIP ID for SNAT Rule
 	CreatedSNATRuleID    string `json:"createdSNATRuleID"`    // SNAT Rule ID
 
+	ResizeClusterJobID   string `json:"resizeClusterJobID"`   // resize cluster job ID
 	UpgradeClusterTaskID string `json:"upgradeClusterTaskID"` // upgrade cluster task ID
 }
 
