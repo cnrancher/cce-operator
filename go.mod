@@ -5,7 +5,7 @@ go 1.19
 replace golang.org/x/crypto => golang.org/x/crypto v0.17.0
 
 require (
-	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.69
 	github.com/rancher/lasso v0.0.0-20230629200414-8a54b32e6792
@@ -13,9 +13,9 @@ require (
 	github.com/rancher/wrangler-api v0.6.1-0.20200427172631-a7c2f09b783e
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
-	k8s.io/api v0.27.8
-	k8s.io/apimachinery v0.27.8
-	k8s.io/client-go v0.27.8
+	k8s.io/api v0.25.12
+	k8s.io/apimachinery v0.25.12
+	k8s.io/client-go v0.25.12
 )
 
 require (
