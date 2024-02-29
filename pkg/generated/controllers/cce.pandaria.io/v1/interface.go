@@ -21,7 +21,8 @@ package v1
 import (
 	v1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
 	"github.com/rancher/lasso/pkg/controller"
-	"github.com/rancher/wrangler/pkg/schemes"
+	"github.com/rancher/wrangler/v2/pkg/generic"
+	"github.com/rancher/wrangler/v2/pkg/schemes"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -43,6 +44,6 @@ type version struct {
 	controllerFactory controller.SharedControllerFactory
 }
 
-func (c *version) CCEClusterConfig() CCEClusterConfigController {
-	return NewCCEClusterConfigController(schema.GroupVersionKind{Group: "cce.pandaria.io", Version: "v1", Kind: "CCEClusterConfig"}, "cceclusterconfigs", true, c.controllerFactory)
+func (v *version) CCEClusterConfig() CCEClusterConfigController {
+	return generic.NewController[*v1.CCEClusterConfig, *v1.CCEClusterConfigList](schema.GroupVersionKind{Group: "cce.pandaria.io", Version: "v1", Kind: "CCEClusterConfig"}, "cceclusterconfigs", true, v.controllerFactory)
 }

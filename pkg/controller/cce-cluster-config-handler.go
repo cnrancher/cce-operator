@@ -18,7 +18,7 @@ import (
 	"github.com/cnrancher/cce-operator/pkg/huawei/vpc"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	cce_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
-	wranglerv1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
+	wranglerv1 "github.com/rancher/wrangler/v2/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

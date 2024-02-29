@@ -11,11 +11,10 @@ import (
 	"github.com/cnrancher/cce-operator/pkg/controller"
 	ccev1 "github.com/cnrancher/cce-operator/pkg/generated/controllers/cce.pandaria.io"
 	"github.com/cnrancher/cce-operator/pkg/utils"
-	"github.com/rancher/wrangler-api/pkg/generated/controllers/apps"
-	core3 "github.com/rancher/wrangler/pkg/generated/controllers/core"
-	"github.com/rancher/wrangler/pkg/kubeconfig"
-	"github.com/rancher/wrangler/pkg/signals"
-	"github.com/rancher/wrangler/pkg/start"
+	"github.com/rancher/wrangler/v2/pkg/generated/controllers/core"
+	"github.com/rancher/wrangler/v2/pkg/kubeconfig"
+	"github.com/rancher/wrangler/v2/pkg/signals"
+	"github.com/rancher/wrangler/v2/pkg/start"
 	"github.com/sirupsen/logrus"
 )
 
@@ -65,11 +64,7 @@ func main() {
 	}
 
 	// Generated apps controller
-	apps := apps.NewFactoryFromConfigOrDie(cfg)
-	core, err := core3.NewFactoryFromConfig(cfg)
-	if err != nil {
-		logrus.Fatalf("Error building core factory: %v", err)
-	}
+	core := core.NewFactoryFromConfigOrDie(cfg)
 
 	// Generated controller
 	cce, err := ccev1.NewFactoryFromConfig(cfg)
@@ -85,7 +80,7 @@ func main() {
 		cce.Cce().V1().CCEClusterConfig())
 
 	// Start all the controllers
-	if err := start.All(ctx, 3, apps, cce, core); err != nil {
+	if err := start.All(ctx, 2, cce, core); err != nil {
 		logrus.Fatalf("Error starting cce controller: %v", err)
 	}
 

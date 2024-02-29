@@ -20,262 +20,54 @@ package v1
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	v1 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
-	"github.com/rancher/lasso/pkg/client"
-	"github.com/rancher/lasso/pkg/controller"
-	"github.com/rancher/wrangler/pkg/apply"
-	"github.com/rancher/wrangler/pkg/condition"
-	"github.com/rancher/wrangler/pkg/generic"
-	"github.com/rancher/wrangler/pkg/kv"
+	"github.com/rancher/wrangler/v2/pkg/apply"
+	"github.com/rancher/wrangler/v2/pkg/condition"
+	"github.com/rancher/wrangler/v2/pkg/generic"
+	"github.com/rancher/wrangler/v2/pkg/kv"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 )
 
-type CCEClusterConfigHandler func(string, *v1.CCEClusterConfig) (*v1.CCEClusterConfig, error)
-
+// CCEClusterConfigController interface for managing CCEClusterConfig resources.
 type CCEClusterConfigController interface {
-	generic.ControllerMeta
-	CCEClusterConfigClient
-
-	OnChange(ctx context.Context, name string, sync CCEClusterConfigHandler)
-	OnRemove(ctx context.Context, name string, sync CCEClusterConfigHandler)
-	Enqueue(namespace, name string)
-	EnqueueAfter(namespace, name string, duration time.Duration)
-
-	Cache() CCEClusterConfigCache
+	generic.ControllerInterface[*v1.CCEClusterConfig, *v1.CCEClusterConfigList]
 }
 
+// CCEClusterConfigClient interface for managing CCEClusterConfig resources in Kubernetes.
 type CCEClusterConfigClient interface {
-	Create(*v1.CCEClusterConfig) (*v1.CCEClusterConfig, error)
-	Update(*v1.CCEClusterConfig) (*v1.CCEClusterConfig, error)
-	UpdateStatus(*v1.CCEClusterConfig) (*v1.CCEClusterConfig, error)
-	Delete(namespace, name string, options *metav1.DeleteOptions) error
-	Get(namespace, name string, options metav1.GetOptions) (*v1.CCEClusterConfig, error)
-	List(namespace string, opts metav1.ListOptions) (*v1.CCEClusterConfigList, error)
-	Watch(namespace string, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(namespace, name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.CCEClusterConfig, err error)
+	generic.ClientInterface[*v1.CCEClusterConfig, *v1.CCEClusterConfigList]
 }
 
+// CCEClusterConfigCache interface for retrieving CCEClusterConfig resources in memory.
 type CCEClusterConfigCache interface {
-	Get(namespace, name string) (*v1.CCEClusterConfig, error)
-	List(namespace string, selector labels.Selector) ([]*v1.CCEClusterConfig, error)
-
-	AddIndexer(indexName string, indexer CCEClusterConfigIndexer)
-	GetByIndex(indexName, key string) ([]*v1.CCEClusterConfig, error)
+	generic.CacheInterface[*v1.CCEClusterConfig]
 }
 
-type CCEClusterConfigIndexer func(obj *v1.CCEClusterConfig) ([]string, error)
-
-type cCEClusterConfigController struct {
-	controller    controller.SharedController
-	client        *client.Client
-	gvk           schema.GroupVersionKind
-	groupResource schema.GroupResource
-}
-
-func NewCCEClusterConfigController(gvk schema.GroupVersionKind, resource string, namespaced bool, controller controller.SharedControllerFactory) CCEClusterConfigController {
-	c := controller.ForResourceKind(gvk.GroupVersion().WithResource(resource), gvk.Kind, namespaced)
-	return &cCEClusterConfigController{
-		controller: c,
-		client:     c.Client(),
-		gvk:        gvk,
-		groupResource: schema.GroupResource{
-			Group:    gvk.Group,
-			Resource: resource,
-		},
-	}
-}
-
-func FromCCEClusterConfigHandlerToHandler(sync CCEClusterConfigHandler) generic.Handler {
-	return func(key string, obj runtime.Object) (ret runtime.Object, err error) {
-		var v *v1.CCEClusterConfig
-		if obj == nil {
-			v, err = sync(key, nil)
-		} else {
-			v, err = sync(key, obj.(*v1.CCEClusterConfig))
-		}
-		if v == nil {
-			return nil, err
-		}
-		return v, err
-	}
-}
-
-func (c *cCEClusterConfigController) Updater() generic.Updater {
-	return func(obj runtime.Object) (runtime.Object, error) {
-		newObj, err := c.Update(obj.(*v1.CCEClusterConfig))
-		if newObj == nil {
-			return nil, err
-		}
-		return newObj, err
-	}
-}
-
-func UpdateCCEClusterConfigDeepCopyOnChange(client CCEClusterConfigClient, obj *v1.CCEClusterConfig, handler func(obj *v1.CCEClusterConfig) (*v1.CCEClusterConfig, error)) (*v1.CCEClusterConfig, error) {
-	if obj == nil {
-		return obj, nil
-	}
-
-	copyObj := obj.DeepCopy()
-	newObj, err := handler(copyObj)
-	if newObj != nil {
-		copyObj = newObj
-	}
-	if obj.ResourceVersion == copyObj.ResourceVersion && !equality.Semantic.DeepEqual(obj, copyObj) {
-		return client.Update(copyObj)
-	}
-
-	return copyObj, err
-}
-
-func (c *cCEClusterConfigController) AddGenericHandler(ctx context.Context, name string, handler generic.Handler) {
-	c.controller.RegisterHandler(ctx, name, controller.SharedControllerHandlerFunc(handler))
-}
-
-func (c *cCEClusterConfigController) AddGenericRemoveHandler(ctx context.Context, name string, handler generic.Handler) {
-	c.AddGenericHandler(ctx, name, generic.NewRemoveHandler(name, c.Updater(), handler))
-}
-
-func (c *cCEClusterConfigController) OnChange(ctx context.Context, name string, sync CCEClusterConfigHandler) {
-	c.AddGenericHandler(ctx, name, FromCCEClusterConfigHandlerToHandler(sync))
-}
-
-func (c *cCEClusterConfigController) OnRemove(ctx context.Context, name string, sync CCEClusterConfigHandler) {
-	c.AddGenericHandler(ctx, name, generic.NewRemoveHandler(name, c.Updater(), FromCCEClusterConfigHandlerToHandler(sync)))
-}
-
-func (c *cCEClusterConfigController) Enqueue(namespace, name string) {
-	c.controller.Enqueue(namespace, name)
-}
-
-func (c *cCEClusterConfigController) EnqueueAfter(namespace, name string, duration time.Duration) {
-	c.controller.EnqueueAfter(namespace, name, duration)
-}
-
-func (c *cCEClusterConfigController) Informer() cache.SharedIndexInformer {
-	return c.controller.Informer()
-}
-
-func (c *cCEClusterConfigController) GroupVersionKind() schema.GroupVersionKind {
-	return c.gvk
-}
-
-func (c *cCEClusterConfigController) Cache() CCEClusterConfigCache {
-	return &cCEClusterConfigCache{
-		indexer:  c.Informer().GetIndexer(),
-		resource: c.groupResource,
-	}
-}
-
-func (c *cCEClusterConfigController) Create(obj *v1.CCEClusterConfig) (*v1.CCEClusterConfig, error) {
-	result := &v1.CCEClusterConfig{}
-	return result, c.client.Create(context.TODO(), obj.Namespace, obj, result, metav1.CreateOptions{})
-}
-
-func (c *cCEClusterConfigController) Update(obj *v1.CCEClusterConfig) (*v1.CCEClusterConfig, error) {
-	result := &v1.CCEClusterConfig{}
-	return result, c.client.Update(context.TODO(), obj.Namespace, obj, result, metav1.UpdateOptions{})
-}
-
-func (c *cCEClusterConfigController) UpdateStatus(obj *v1.CCEClusterConfig) (*v1.CCEClusterConfig, error) {
-	result := &v1.CCEClusterConfig{}
-	return result, c.client.UpdateStatus(context.TODO(), obj.Namespace, obj, result, metav1.UpdateOptions{})
-}
-
-func (c *cCEClusterConfigController) Delete(namespace, name string, options *metav1.DeleteOptions) error {
-	if options == nil {
-		options = &metav1.DeleteOptions{}
-	}
-	return c.client.Delete(context.TODO(), namespace, name, *options)
-}
-
-func (c *cCEClusterConfigController) Get(namespace, name string, options metav1.GetOptions) (*v1.CCEClusterConfig, error) {
-	result := &v1.CCEClusterConfig{}
-	return result, c.client.Get(context.TODO(), namespace, name, result, options)
-}
-
-func (c *cCEClusterConfigController) List(namespace string, opts metav1.ListOptions) (*v1.CCEClusterConfigList, error) {
-	result := &v1.CCEClusterConfigList{}
-	return result, c.client.List(context.TODO(), namespace, result, opts)
-}
-
-func (c *cCEClusterConfigController) Watch(namespace string, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.client.Watch(context.TODO(), namespace, opts)
-}
-
-func (c *cCEClusterConfigController) Patch(namespace, name string, pt types.PatchType, data []byte, subresources ...string) (*v1.CCEClusterConfig, error) {
-	result := &v1.CCEClusterConfig{}
-	return result, c.client.Patch(context.TODO(), namespace, name, pt, data, result, metav1.PatchOptions{}, subresources...)
-}
-
-type cCEClusterConfigCache struct {
-	indexer  cache.Indexer
-	resource schema.GroupResource
-}
-
-func (c *cCEClusterConfigCache) Get(namespace, name string) (*v1.CCEClusterConfig, error) {
-	obj, exists, err := c.indexer.GetByKey(namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(c.resource, name)
-	}
-	return obj.(*v1.CCEClusterConfig), nil
-}
-
-func (c *cCEClusterConfigCache) List(namespace string, selector labels.Selector) (ret []*v1.CCEClusterConfig, err error) {
-
-	err = cache.ListAllByNamespace(c.indexer, namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.CCEClusterConfig))
-	})
-
-	return ret, err
-}
-
-func (c *cCEClusterConfigCache) AddIndexer(indexName string, indexer CCEClusterConfigIndexer) {
-	utilruntime.Must(c.indexer.AddIndexers(map[string]cache.IndexFunc{
-		indexName: func(obj interface{}) (strings []string, e error) {
-			return indexer(obj.(*v1.CCEClusterConfig))
-		},
-	}))
-}
-
-func (c *cCEClusterConfigCache) GetByIndex(indexName, key string) (result []*v1.CCEClusterConfig, err error) {
-	objs, err := c.indexer.ByIndex(indexName, key)
-	if err != nil {
-		return nil, err
-	}
-	result = make([]*v1.CCEClusterConfig, 0, len(objs))
-	for _, obj := range objs {
-		result = append(result, obj.(*v1.CCEClusterConfig))
-	}
-	return result, nil
-}
-
+// CCEClusterConfigStatusHandler is executed for every added or modified CCEClusterConfig. Should return the new status to be updated
 type CCEClusterConfigStatusHandler func(obj *v1.CCEClusterConfig, status v1.CCEClusterConfigStatus) (v1.CCEClusterConfigStatus, error)
 
+// CCEClusterConfigGeneratingHandler is the top-level handler that is executed for every CCEClusterConfig event. It extends CCEClusterConfigStatusHandler by a returning a slice of child objects to be passed to apply.Apply
 type CCEClusterConfigGeneratingHandler func(obj *v1.CCEClusterConfig, status v1.CCEClusterConfigStatus) ([]runtime.Object, v1.CCEClusterConfigStatus, error)
 
+// RegisterCCEClusterConfigStatusHandler configures a CCEClusterConfigController to execute a CCEClusterConfigStatusHandler for every events observed.
+// If a non-empty condition is provided, it will be updated in the status conditions for every handler execution
 func RegisterCCEClusterConfigStatusHandler(ctx context.Context, controller CCEClusterConfigController, condition condition.Cond, name string, handler CCEClusterConfigStatusHandler) {
 	statusHandler := &cCEClusterConfigStatusHandler{
 		client:    controller,
 		condition: condition,
 		handler:   handler,
 	}
-	controller.AddGenericHandler(ctx, name, FromCCEClusterConfigHandlerToHandler(statusHandler.sync))
+	controller.AddGenericHandler(ctx, name, generic.FromObjectHandlerToHandler(statusHandler.sync))
 }
 
+// RegisterCCEClusterConfigGeneratingHandler configures a CCEClusterConfigController to execute a CCEClusterConfigGeneratingHandler for every events observed, passing the returned objects to the provided apply.Apply.
+// If a non-empty condition is provided, it will be updated in the status conditions for every handler execution
 func RegisterCCEClusterConfigGeneratingHandler(ctx context.Context, controller CCEClusterConfigController, apply apply.Apply,
 	condition condition.Cond, name string, handler CCEClusterConfigGeneratingHandler, opts *generic.GeneratingHandlerOptions) {
 	statusHandler := &cCEClusterConfigGeneratingHandler{
@@ -297,6 +89,7 @@ type cCEClusterConfigStatusHandler struct {
 	handler   CCEClusterConfigStatusHandler
 }
 
+// sync is executed on every resource addition or modification. Executes the configured handlers and sends the updated status to the Kubernetes API
 func (a *cCEClusterConfigStatusHandler) sync(key string, obj *v1.CCEClusterConfig) (*v1.CCEClusterConfig, error) {
 	if obj == nil {
 		return obj, nil
@@ -342,8 +135,10 @@ type cCEClusterConfigGeneratingHandler struct {
 	opts  generic.GeneratingHandlerOptions
 	gvk   schema.GroupVersionKind
 	name  string
+	seen  sync.Map
 }
 
+// Remove handles the observed deletion of a resource, cascade deleting every associated resource previously applied
 func (a *cCEClusterConfigGeneratingHandler) Remove(key string, obj *v1.CCEClusterConfig) (*v1.CCEClusterConfig, error) {
 	if obj != nil {
 		return obj, nil
@@ -353,12 +148,17 @@ func (a *cCEClusterConfigGeneratingHandler) Remove(key string, obj *v1.CCECluste
 	obj.Namespace, obj.Name = kv.RSplit(key, "/")
 	obj.SetGroupVersionKind(a.gvk)
 
+	if a.opts.UniqueApplyForResourceVersion {
+		a.seen.Delete(key)
+	}
+
 	return nil, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
 		WithOwner(obj).
 		WithSetID(a.name).
 		ApplyObjects()
 }
 
+// Handle executes the configured CCEClusterConfigGeneratingHandler and pass the resulting objects to apply.Apply, finally returning the new status of the resource
 func (a *cCEClusterConfigGeneratingHandler) Handle(obj *v1.CCEClusterConfig, status v1.CCEClusterConfigStatus) (v1.CCEClusterConfigStatus, error) {
 	if !obj.DeletionTimestamp.IsZero() {
 		return status, nil
@@ -368,9 +168,41 @@ func (a *cCEClusterConfigGeneratingHandler) Handle(obj *v1.CCEClusterConfig, sta
 	if err != nil {
 		return newStatus, err
 	}
+	if !a.isNewResourceVersion(obj) {
+		return newStatus, nil
+	}
 
-	return newStatus, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
+	err = generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
 		WithOwner(obj).
 		WithSetID(a.name).
 		ApplyObjects(objs...)
+	if err != nil {
+		return newStatus, err
+	}
+	a.storeResourceVersion(obj)
+	return newStatus, nil
+}
+
+// isNewResourceVersion detects if a specific resource version was already successfully processed.
+// Only used if UniqueApplyForResourceVersion is set in generic.GeneratingHandlerOptions
+func (a *cCEClusterConfigGeneratingHandler) isNewResourceVersion(obj *v1.CCEClusterConfig) bool {
+	if !a.opts.UniqueApplyForResourceVersion {
+		return true
+	}
+
+	// Apply once per resource version
+	key := obj.Namespace + "/" + obj.Name
+	previous, ok := a.seen.Load(key)
+	return !ok || previous != obj.ResourceVersion
+}
+
+// storeResourceVersion keeps track of the latest resource version of an object for which Apply was executed
+// Only used if UniqueApplyForResourceVersion is set in generic.GeneratingHandlerOptions
+func (a *cCEClusterConfigGeneratingHandler) storeResourceVersion(obj *v1.CCEClusterConfig) {
+	if !a.opts.UniqueApplyForResourceVersion {
+		return
+	}
+
+	key := obj.Namespace + "/" + obj.Name
+	a.seen.Store(key, obj.ResourceVersion)
 }
