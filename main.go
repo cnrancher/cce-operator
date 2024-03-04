@@ -11,8 +11,7 @@ import (
 	"github.com/cnrancher/cce-operator/pkg/controller"
 	ccev1 "github.com/cnrancher/cce-operator/pkg/generated/controllers/cce.pandaria.io"
 	"github.com/cnrancher/cce-operator/pkg/utils"
-	"github.com/rancher/wrangler-api/pkg/generated/controllers/apps"
-	core3 "github.com/rancher/wrangler/pkg/generated/controllers/core"
+	corev1 "github.com/rancher/wrangler/pkg/generated/controllers/core"
 	"github.com/rancher/wrangler/pkg/kubeconfig"
 	"github.com/rancher/wrangler/pkg/signals"
 	"github.com/rancher/wrangler/pkg/start"
@@ -64,18 +63,9 @@ func main() {
 		logrus.Fatalf("Error building kubeconfig: %v", err)
 	}
 
-	// Generated apps controller
-	apps := apps.NewFactoryFromConfigOrDie(cfg)
-	core, err := core3.NewFactoryFromConfig(cfg)
-	if err != nil {
-		logrus.Fatalf("Error building core factory: %v", err)
-	}
-
 	// Generated controller
-	cce, err := ccev1.NewFactoryFromConfig(cfg)
-	if err != nil {
-		logrus.Fatalf("Error building cce factory: %v", err)
-	}
+	core := corev1.NewFactoryFromConfigOrDie(cfg)
+	cce := ccev1.NewFactoryFromConfigOrDie(cfg)
 
 	// The typical pattern is to build all your controller/clients then just pass to each handler
 	// the bare minimum of what they need.  This will eventually help with writing tests.  So
@@ -85,7 +75,7 @@ func main() {
 		cce.Cce().V1().CCEClusterConfig())
 
 	// Start all the controllers
-	if err := start.All(ctx, 3, apps, cce, core); err != nil {
+	if err := start.All(ctx, 2, cce, core); err != nil {
 		logrus.Fatalf("Error starting cce controller: %v", err)
 	}
 
