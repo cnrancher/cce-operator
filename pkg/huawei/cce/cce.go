@@ -268,7 +268,7 @@ func ResizeCluster(
 		ClusterId: ID,
 		Body: &model.ResizeClusterRequestBody{
 			FlavorResize: flavor,
-			ExtendParam: &model.ResizeClusterRequestExtendParam{
+			ExtendParam: &model.ResizeClusterRequestBodyExtendParam{
 				IsAutoPay: &isAutoPay,
 			},
 		},

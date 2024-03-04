@@ -5,7 +5,6 @@ import (
 	"os"
 
 	v12 "github.com/cnrancher/cce-operator/pkg/apis/cce.pandaria.io/v1"
-	_ "github.com/rancher/wrangler-api/pkg/generated/controllers/apiextensions.k8s.io"
 	controllergen "github.com/rancher/wrangler/pkg/controller-gen"
 	"github.com/rancher/wrangler/pkg/controller-gen/args"
 	"github.com/rancher/wrangler/pkg/crd"
@@ -28,9 +27,6 @@ func main() {
 				},
 				GenerateTypes: true,
 			},
-			// Optionally you can use wrangler-api project which
-			// has a lot of common kubernetes APIs already generated.
-			// In this controller we will use wrangler-api for apps api group
 			"": {
 				Types: []interface{}{
 					v1.Pod{},
