@@ -1052,6 +1052,22 @@ func (h *Handler) importCluster(config *ccev1.CCEClusterConfig) (*ccev1.CCEClust
 	if cluster == nil || cluster.Status == nil || cluster.Status.Endpoints == nil {
 		return config, fmt.Errorf("ShowCluster returns invalid data, cluster ID [%s]", config.Spec.ClusterID)
 	}
+
+	// Check cluster status.
+	switch utils.Value(cluster.Status.Phase) {
+	case cce.ClusterStatusCreating,
+		cce.ClusterStatusDeleting,
+		cce.ClusterStatusResizing,
+		cce.ClusterStatusUpgrading:
+		logrus.WithFields(logrus.Fields{
+			"cluster": config.Name,
+			"phase":   config.Status.Phase,
+		}).Infof("waiting for cluster [%s] finish status [%s]",
+			config.Spec.Name, utils.Value(cluster.Status.Phase))
+		h.cceEnqueueAfter(config.Namespace, config.Name, 15*time.Second)
+		return config, nil
+	}
+
 	for _, endpoint := range *cluster.Status.Endpoints {
 		if endpoint.Type == nil || endpoint.Url == nil {
 			continue
