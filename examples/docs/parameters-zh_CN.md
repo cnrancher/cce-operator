@@ -37,7 +37,7 @@
         // "cidrs": ["172.16.123.0/24"] // 后续华为云 API 升级可能会启用 cidr 字段改为 "cidrs" 字段
     },
     "eniNetwork": { // 云原生网络2.0网络配置，仅限创建 CCE Turbo 集群时指定。
-        "subnets": [] // Subnet 子网 ID 列表
+        "subnets": [] // IPv4 子网 ID 列表，Subnet 的 IPv4 子网ID。
     },
     "authentication": { // 集群认证方式相关配置。
         "mode": "rbac", // 集群认证模式。
