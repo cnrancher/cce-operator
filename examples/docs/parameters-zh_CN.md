@@ -7,7 +7,7 @@
 ````json
 {
     "huaweiCredentialSecret": "cattle-global-data:cc-xxxxx", // secret ID
-    "category": "CCE", // 保留选项，目前只支持 CCE，后续可以创建 Turbo
+    "category": "CCE", //  集群类型，CCE 或 Turbo
     "regionID": "cn-north-1", // CCE 集群的 Region
     "clusterID": "", // 创建集群时，此参数为空字符串，仅导入集群时需要此字段
     "imported": false, // 非导入集群
@@ -19,7 +19,7 @@
     "flavor": "cce.s1.small", // s1：单控制节点CCE集群。
                               // s2：多控制节点CCE集群 （高可用）。
                               // small (最大 50 节点), medium (200 节点), large (1k 节点), xlarge (2k 节点)
-    "version": "v1.23", // v1.21, v1.23, v1.25
+    "version": "v1.23", // v1.21, v1.23, v1.25, v1.27, v1.28
     "description": "example description", // 集群描述
     "ipv6Enable": false, // 保留参数，永远为 False
     "hostNetwork": {
@@ -28,12 +28,16 @@
         "securityGroup": "SECURITY-GROUP-ID" // 安全组，若为空字符串，华为云在创建集群时会自动新建一个安全组
     },
     "containerNetwork": {
-        "mode": "overlay_l2", // 容器网络类型：overlay_l2, vpc-router, eni
+        // 容器网络类型：
+        // overlay_l2: 容器隧道网络
+        // vpc-router: VPC网络，使用ipvlan和自定义VPC路由为容器构建的Underlay的l2网络
+        // eni: 云原生网络2.0，仅限 CCE Turbo集群时指定，且 Turbo 集群只能选择 eni 网络类型
+        "mode": "overlay_l2", 
         "cidr": "172.16.123.0/24" // 容器网络网段
         // "cidrs": ["172.16.123.0/24"] // 后续华为云 API 升级可能会启用 cidr 字段改为 "cidrs" 字段
     },
-    "eniNetwork": { // 创建CCE Turbo集群时指定，保留字段。
-        "subnets": []
+    "eniNetwork": { // 云原生网络2.0网络配置，仅限创建 CCE Turbo 集群时指定。
+        "subnets": [] // Subnet 子网 ID 列表
     },
     "authentication": { // 集群认证方式相关配置。
         "mode": "rbac", // 集群认证模式。
