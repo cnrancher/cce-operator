@@ -52,16 +52,16 @@ func CreateCluster(
 func GetCreateClusterRequest(config *ccev1.CCEClusterConfig) *model.CreateClusterRequest {
 	spec := &config.Spec
 	status := &config.Status
-	var containerNetWorkMode model.ContainerNetworkMode
+	var containerNetworkMode model.ContainerNetworkMode
 	switch spec.ContainerNetwork.Mode {
 	case "overlay_l2":
-		containerNetWorkMode = model.GetContainerNetworkModeEnum().OVERLAY_L2
+		containerNetworkMode = model.GetContainerNetworkModeEnum().OVERLAY_L2
 	case "vpc-router":
-		containerNetWorkMode = model.GetContainerNetworkModeEnum().VPC_ROUTER
+		containerNetworkMode = model.GetContainerNetworkModeEnum().VPC_ROUTER
 	case "eni":
-		containerNetWorkMode = model.GetContainerNetworkModeEnum().ENI
+		containerNetworkMode = model.GetContainerNetworkModeEnum().ENI
 	default:
-		containerNetWorkMode = model.GetContainerNetworkModeEnum().ENI
+		containerNetworkMode = model.GetContainerNetworkModeEnum().VPC_ROUTER
 	}
 
 	var clusterSpecType model.ClusterSpecType
@@ -121,21 +121,32 @@ func GetCreateClusterRequest(config *ccev1.CCEClusterConfig) *model.CreateCluste
 				SecurityGroup: &spec.HostNetwork.SecurityGroup,
 			},
 			ContainerNetwork: &model.ContainerNetwork{
-				Mode: containerNetWorkMode,
+				Mode: containerNetworkMode,
 				Cidr: &spec.ContainerNetwork.CIDR,
 			},
+			EniNetwork: &model.EniNetwork{},
 			Authentication: &model.Authentication{
 				Mode: &spec.Authentication.Mode,
 			},
-			BillingMode:          &spec.BillingMode,
-			KubernetesSvcIpRange: &spec.KubernetesSvcIPRange,
-			ClusterTags:          &clusterTags,
-			KubeProxyMode:        &kubeProxyMode,
+			BillingMode: &spec.BillingMode,
+			ServiceNetwork: &model.ServiceNetwork{
+				IPv4CIDR: &spec.KubernetesSvcIPRange,
+			},
+			ClusterTags:   &clusterTags,
+			KubeProxyMode: &kubeProxyMode,
 			ExtendParam: &model.ClusterExtendParam{
 				ClusterAZ:         &spec.ExtendParam.ClusterAZ,
 				ClusterExternalIP: &status.ClusterExternalIP,
 			},
 		},
+	}
+	if len(spec.EniNetwork.Subnets) > 0 {
+		for _, v := range spec.EniNetwork.Subnets {
+			s := model.NetworkSubnet{
+				SubnetID: v,
+			}
+			clusterReq.Spec.EniNetwork.Subnets = append(clusterReq.Spec.EniNetwork.Subnets, s)
+		}
 	}
 	if spec.Authentication.Mode == "authenticating_proxy" {
 		clusterReq.Spec.Authentication.AuthenticatingProxy.Ca =

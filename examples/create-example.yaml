@@ -5,14 +5,14 @@ metadata:
 spec:
   huaweiCredentialSecret: "cattle-global-data:cc-test-cce"
   category: "CCE"
-  regionID: "cn-north-1"
+  regionID: "cn-east-3"
   clusterID: ""
   imported: false
   name: "cce-test"
   labels:
   type: "VirtualMachine"
   flavor: "cce.s1.small"
-  version: "v1.23"
+  version: "v1.28"
   description: ""
   ipv6Enable: false
   hostNetwork:
@@ -33,12 +33,12 @@ spec:
       cert:
       privateKey:
   clusterBillingMode: 0
-  kubernetesSvcIPRange: "10.1.2.0/24"
+  kubernetesSvcIPRange: "10.247.0.0/16"
   tags:
   kubeProxyMode: "iptables"
-  publicAccess: true
+  publicAccess: false
   publicIP:
-    createEIP: true
+    createEIP: false
     eip:
       ipType: 5_sbgp
       bandwidth:
@@ -72,7 +72,7 @@ spec:
       customSecurityGroups: []
       nodeTemplate:
         flavor: "t6.large.2"
-        availableZone: "random"
+        availableZone: "cn-east-3a"
         operatingSystem: "EulerOS 2.9"
         # Edit sshKey manually
         sshKey: "KeyPair-01"
@@ -84,7 +84,7 @@ spec:
             type: "SSD"
         publicIP:
         billingMode: 0
-        runtime: "docker"
+        runtime: "containerd"
         extendParam:
           periodType: "month"
           periodNum: 1
