@@ -36,7 +36,7 @@ func BuildUpstreamClusterState(
 		EniNetwork:             ccev1.CCEEniNetwork{},
 		Authentication:         ccev1.CCEAuthentication{},
 		BillingMode:            utils.Value(c.Spec.BillingMode),
-		KubernetesSvcIPRange:   utils.Value(c.Spec.KubernetesSvcIpRange),
+		KubernetesSvcIPRange:   "",
 		Tags:                   make(map[string]string),
 		KubeProxyMode:          c.Spec.KubeProxyMode.Value(),
 		PublicAccess:           false,
@@ -44,6 +44,9 @@ func BuildUpstreamClusterState(
 	if utils.Value(c.Metadata.Alias) != "" && spec.Name != utils.Value(c.Metadata.Alias) {
 		// Set cluster name to edited alias instead of the original name.
 		spec.Name = utils.Value(c.Metadata.Alias)
+	}
+	if c.Spec.ServiceNetwork != nil {
+		spec.KubernetesSvcIPRange = utils.Value(c.Spec.ServiceNetwork.IPv4CIDR)
 	}
 	if c.Spec.HostNetwork != nil {
 		spec.HostNetwork.VpcID = c.Spec.HostNetwork.Vpc
