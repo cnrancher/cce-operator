@@ -7,7 +7,7 @@ require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.84
 	github.com/rancher/lasso v0.0.0-20240123150939-7055397d6dfa
-	github.com/rancher/wrangler/v2 v2.1.3
+	github.com/rancher/wrangler/v2 v2.1.4
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	k8s.io/api v0.28.6
