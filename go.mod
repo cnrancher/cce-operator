@@ -8,8 +8,8 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.104
-	github.com/rancher/lasso v0.0.0-20240603075835-701e919d08b7
-	github.com/rancher/wrangler/v3 v3.0.0-rc2
+	github.com/rancher/lasso v0.0.0-20240705194423-b2a060d103c1
+	github.com/rancher/wrangler/v3 v3.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	k8s.io/api v0.30.1
