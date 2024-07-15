@@ -89,8 +89,8 @@ github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+
 github.com/grpc-ecosystem/grpc-gateway v1.16.0 h1:gmcG1KaJ57LophUzW0Hy8NmPhnMZb4M0+kPpLofRdBo=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 h1:YBftPWNWd4WwGqtY2yeZL2ef8rHAxPBD8KFhJpmcqms=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0/go.mod h1:YN5jB8ie0yfIUg6VvR9Kz84aCaG7AsGZnLjhHbUqwPg=
-github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.104 h1:mCjW876Kx+y7LYxvbXVUxacN42AH2EJe715iZyPP1Fk=
-github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.104/go.mod h1:lhdEO9Bbb3hZ0wG+JeK9/GqMOp/sgc92mFmVk5tNSCk=
+github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.105 h1:5/ps/bby3CK4Abjq4aV3AlddRHTdFg1uPSb/gcZ4kgU=
+github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.105/go.mod h1:lhdEO9Bbb3hZ0wG+JeK9/GqMOp/sgc92mFmVk5tNSCk=
 github.com/imdario/mergo v0.3.12 h1:b6R2BslTbIEToALKP7LxUvijTsNI9TAe80pLWN2g/HU=
 github.com/imdario/mergo v0.3.12/go.mod h1:jmQim1M+e3UYxmgPu/WyfjB3N3VflVyUjjjwH0dnCYA=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=

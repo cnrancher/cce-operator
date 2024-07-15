@@ -7,7 +7,7 @@ toolchain go1.22.3
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
-	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.104
+	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.105
 	github.com/rancher/lasso v0.0.0-20240603075835-701e919d08b7
 	github.com/rancher/wrangler/v3 v3.0.0-rc2
 	github.com/sirupsen/logrus v1.9.3
