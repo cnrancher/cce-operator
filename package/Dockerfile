@@ -1,5 +1,6 @@
 FROM registry.suse.com/bci/bci-base:15.6
 
+ARG TARGETARCH
 RUN zypper update -y && \
     zypper in -y -f vim && \
     zypper clean -a && \
