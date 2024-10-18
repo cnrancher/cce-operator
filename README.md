@@ -1,6 +1,6 @@
 ## cnrancher/cce-operator
 
-[![Build Status](https://drone-pandaria.cnrancher.com/api/badges/cnrancher/cce-operator/status.svg?ref=refs/heads/main)](https://drone-pandaria.cnrancher.com/cnrancher/cce-operator)
+[![CI](https://github.com/cnrancher/cce-operator/actions/workflows/ci.yaml/badge.svg?branch=release%2Fv2.8)](https://github.com/cnrancher/cce-operator/actions/workflows/ci.yaml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/cnrancher/cce-operator.svg)](https://store.docker.com/community/images/cnrancher/cce-operator)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cnrancher/cce-operator)](https://goreportcard.com/report/github.com/cnrancher/cce-operator)
 
