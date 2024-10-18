@@ -208,8 +208,8 @@ func GetCreateNodePoolRequest(
 		)
 	}
 
-	if len(np.NodeTemplate.PublicIP.Ids) > 0 {
-		nodePoolBody.Spec.NodeTemplate.PublicIP.Ids = &np.NodeTemplate.PublicIP.Ids
+	if len(np.NodeTemplate.PublicIP.IDs) > 0 {
+		nodePoolBody.Spec.NodeTemplate.PublicIP.Ids = &np.NodeTemplate.PublicIP.IDs
 	}
 	chargeMode := "traffic"
 	if np.NodeTemplate.PublicIP.Eip.Bandwidth.ChargeMode != "traffic" {

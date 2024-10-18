@@ -58,7 +58,7 @@ func NewHuaweiDriver(auth *common.ClientAuth) *HuaweiDriver {
 		VPC:   vpc.NewVpcClient(auth),
 		EIP:   eip.NewEipClient(auth),
 		VPCEP: vpcep.NewVpcepClient(auth),
-		DNS:   dns.NewDnsClient(auth),
+		DNS:   dns.NewDNSClient(auth),
 		NAT:   nat.NewNatClient(auth),
 	}
 }

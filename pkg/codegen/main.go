@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/wrangler/pkg/controller-gen/args"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/rancher/wrangler/pkg/yaml"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -29,9 +29,9 @@ func main() {
 			},
 			"": {
 				Types: []interface{}{
-					v1.Pod{},
-					v1.Node{},
-					v1.Secret{},
+					corev1.Pod{},
+					corev1.Node{},
+					corev1.Secret{},
 				},
 				InformersPackage: "k8s.io/client-go/informers",
 				ClientSetPackage: "k8s.io/client-go/kubernetes",
@@ -83,7 +83,7 @@ func newCRD(obj interface{}, customize func(crd.CRD) crd.CRD) crd.CRD {
 
 func saveCRDYaml(name, data string) error {
 	filename := fmt.Sprintf("./charts/%s/templates/crds.yaml", name)
-	if err := os.WriteFile(filename, []byte(data), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(data), 0600); err != nil {
 		return err
 	}
 
