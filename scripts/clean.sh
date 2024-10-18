@@ -8,6 +8,7 @@ WORKINGDIR=$(pwd)
 files=(
     "cce-operator"
     "bin/"
+    "build/"
     "dist/"
 )
 
