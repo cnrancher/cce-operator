@@ -1,4 +1,4 @@
-FROM registry.suse.com/bci/bci-base:15.5
+FROM registry.suse.com/bci/bci-base:15.6
 
 RUN zypper update -y && \
     zypper in -y -f vim && \
@@ -7,6 +7,6 @@ RUN zypper update -y && \
 
 RUN useradd --uid 1007 cce-operator
 ENV KUBECONFIG /home/cce-operator/.kube/config
-COPY bin/cce-operator /usr/bin/
+COPY dist/cce-operator_linux_${TARGETARCH}*/ /usr/bin/
 USER 1007
 ENTRYPOINT ["cce-operator", "--debug"]
