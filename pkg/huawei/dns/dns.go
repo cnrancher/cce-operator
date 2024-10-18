@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func NewDnsClient(c *common.ClientAuth) *dns.DnsClient {
+func NewDNSClient(c *common.ClientAuth) *dns.DnsClient {
 	return dns.NewDnsClient(
 		dns.DnsClientBuilder().
 			WithRegion(region.ValueOf(c.Region)).

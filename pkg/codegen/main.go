@@ -80,7 +80,7 @@ func newCRD(obj interface{}, customize func(crd.CRD) crd.CRD) crd.CRD {
 
 func saveCRDYaml(name, data string) error {
 	filename := fmt.Sprintf("./charts/%s/templates/crds.yaml", name)
-	if err := os.WriteFile(filename, []byte(data), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(data), 0600); err != nil {
 		return err
 	}
 

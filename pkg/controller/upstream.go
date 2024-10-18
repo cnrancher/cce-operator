@@ -107,7 +107,7 @@ func BuildUpstreamNodePoolConfigs(
 	if nodePools == nil || nodePools.Items == nil {
 		return nil, fmt.Errorf("BuildUpstreamNodePoolConfigs: invalid nil parameter")
 	}
-	var nps []ccev1.CCENodePool = make([]ccev1.CCENodePool, 0, len(*nodePools.Items))
+	var nps = make([]ccev1.CCENodePool, 0, len(*nodePools.Items))
 	if len(*nodePools.Items) == 0 {
 		return nps, nil
 	}
@@ -158,7 +158,7 @@ func BuildUpstreamNodePoolConfigs(
 			}
 		}
 		if np.Spec.NodeTemplate.PublicIP != nil {
-			config.NodeTemplate.PublicIP.Ids = utils.Value(np.Spec.NodeTemplate.PublicIP.Ids)
+			config.NodeTemplate.PublicIP.IDs = utils.Value(np.Spec.NodeTemplate.PublicIP.Ids)
 			config.NodeTemplate.PublicIP.Count = utils.Value(np.Spec.NodeTemplate.Count)
 			if np.Spec.NodeTemplate.PublicIP.Eip != nil {
 				config.NodeTemplate.PublicIP.Eip.Iptype = np.Spec.NodeTemplate.PublicIP.Eip.Iptype

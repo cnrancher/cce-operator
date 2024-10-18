@@ -22,9 +22,8 @@ func validateNodePool(config *ccev1.CCEClusterConfig) error {
 		}
 		if nodePoolNames[pool.Name] {
 			return fmt.Errorf("nodePool.name should be unique, duplicated detected: %q", pool.Name)
-		} else {
-			nodePoolNames[pool.Name] = true
 		}
+		nodePoolNames[pool.Name] = true
 		nt := pool.NodeTemplate
 		if nt.Flavor == "" {
 			return fmt.Errorf(cannotBeEmptyError, "nodePool.nodeTemplate.flavor", config.Name)

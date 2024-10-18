@@ -298,7 +298,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if dnsServers.Nameservers == nil || len(*dnsServers.Nameservers) == 0 {
 			return config, fmt.Errorf("ListNameServers returns invalid data")
 		}
-		var dnsRecords []string = make([]string, 2)
+		var dnsRecords = make([]string, 2)
 		for _, nameserver := range *dnsServers.Nameservers {
 			if nameserver.NsRecords == nil || len(*nameserver.NsRecords) == 0 {
 				continue
@@ -387,7 +387,7 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 		if dnsServers.Nameservers == nil || len(*dnsServers.Nameservers) == 0 {
 			return config, fmt.Errorf("ListNameServers returns invalid data")
 		}
-		var dnsRecords []string = make([]string, 2)
+		var dnsRecords = make([]string, 2)
 		for _, nameserver := range *dnsServers.Nameservers {
 			if nameserver.NsRecords == nil || len(*nameserver.NsRecords) == 0 {
 				continue
@@ -661,9 +661,8 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 				config = config.DeepCopy()
 				config.Status.UpgradeClusterTaskID = ""
 				return h.cceCC.UpdateStatus(config)
-			} else {
-				return config, err
 			}
+			return config, err
 		}
 		if res != nil && res.Spec != nil && res.Status != nil {
 			switch utils.Value(res.Status.Phase) {
@@ -722,7 +721,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		if len(configUpdate.Status.Endpoints) == len(*cluster.Status.Endpoints) {
 			for i := range *cluster.Status.Endpoints {
 				if configUpdate.Status.Endpoints[i].Type != utils.Value((*cluster.Status.Endpoints)[i].Type) ||
-					configUpdate.Status.Endpoints[i].Url != utils.Value((*cluster.Status.Endpoints)[i].Url) {
+					configUpdate.Status.Endpoints[i].URL != utils.Value((*cluster.Status.Endpoints)[i].Url) {
 					updateEndpoints = true
 				}
 			}
@@ -734,7 +733,7 @@ func (h *Handler) checkAndUpdate(config *ccev1.CCEClusterConfig) (*ccev1.CCEClus
 		configUpdate.Status.Endpoints = nil
 		for _, e := range *cluster.Status.Endpoints {
 			configUpdate.Status.Endpoints = append(configUpdate.Status.Endpoints, ccev1.CCEClusterEndpoints{
-				Url:  utils.Value(e.Url),
+				URL:  utils.Value(e.Url),
 				Type: utils.Value(e.Type),
 			})
 		}

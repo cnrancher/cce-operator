@@ -1,10 +1,10 @@
 package utils
 
 import (
+	"crypto/rand"
 	"encoding/json"
-	"math/rand"
+	"math/big"
 	"strings"
-	"time"
 )
 
 func PrintObject(a any) string {
@@ -22,11 +22,15 @@ func Parse(ref string) (namespace string, name string) {
 
 // Generates a random hexadecimal number.
 func RandomHex(l int) string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	chars := []byte("abcdef0123456789")
+	big := new(big.Int).SetInt64(int64(len(chars)))
 	var b strings.Builder
 	for i := 0; i < l; i++ {
-		b.WriteByte(chars[r.Intn(len(chars))])
+		i, err := rand.Int(rand.Reader, big)
+		if err != nil {
+			return ""
+		}
+		b.WriteByte(chars[i.Int64()])
 	}
 
 	return b.String()
