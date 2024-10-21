@@ -43,4 +43,4 @@ jobs:
           make image
         env:
           TAG: dev
-          REPO: cnrancher
+          REPO: ${{ vars.PUBLIC_REGISTRY_REPO }}
