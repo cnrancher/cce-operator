@@ -1,15 +1,5 @@
 name: Release
 
-# GitHub settings / example values:
-#
-# org level vars:
-#   - PUBLIC_REGISTRY: docker.io
-# repo level vars:
-#   - PUBLIC_REGISTRY_REPO: cnrancher
-# repo level secrets:
-#   - PUBLIC_REGISTRY_USERNAME
-#   - PUBLIC_REGISTRY_PASSWORD
-
 on:
   push:
     tags:
@@ -25,8 +15,8 @@ jobs:
       uses: docker/login-action@v3
       with:
         registry: ${{ vars.PUBLIC_REGISTRY }}
-        username: ${{ secrets.PUBLIC_REGISTRY_USERNAME }}
-        password: ${{ secrets.PUBLIC_REGISTRY_PASSWORD }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Setup QEMU
       uses: docker/setup-qemu-action@v3
     - name: Setup Docker Buildx
