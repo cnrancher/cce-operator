@@ -8,7 +8,6 @@ jobs:
   release:
     permissions:
       contents: write # required for creating GH release
-      id-token: write # required for reading vault secrets
     runs-on: ubuntu-latest
     steps:
     - name: Login to DockerHub
@@ -35,15 +34,11 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.22.x
-    - name: Install Hangar
-      uses: cnrancher/hangar/.github/actions/install-hangar@main
-      with:
-        version: v1.9.0-beta.6
+        go-version: 1.23.x
     - name: Lint
       uses: golangci/golangci-lint-action@v6
       with:
-        version: v1.61
+        version: v1.63
     - name: Verify
       run: |
         make verify
@@ -68,12 +63,9 @@ jobs:
         REPO: ${{ vars.PUBLIC_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
     - name: Image Push TCR
       run: |
-        set -x
         make image-push
 
         echo "${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}/cce-operator:${{ github.ref_name }}" > images.txt
-        hangar sign -f images.txt --oidc-provider=github-actions
-        rm images.txt
       env:
         TAG: ${{ github.ref_name }}
         REPO: ${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
@@ -88,3 +80,26 @@ jobs:
           gh release upload $TAG $f
         done
         echo "Charts successfully uploaded to GitHub release $TAG"
+  image-sign:
+    permissions:
+      id-token: write # required for hangar sign OIDC keyless mode
+    runs-on: ubuntu-latest
+    needs: [ release ]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ github.ref_name}}
+    - name: Login to TCR
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ vars.TCR_REGISTRY }}
+        username: ${{ secrets.TCR_USERNAME }}
+        password: ${{ secrets.TCR_TOKEN }}
+    - name: Hangar Sign
+      uses: cnrancher/hangar/.github/actions/hangar-sign@main
+      with:
+        version: v1.9.0-beta.12
+        images: |
+          ${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}/cce-operator:${{ github.ref_name }}
