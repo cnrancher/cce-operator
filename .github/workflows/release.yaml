@@ -17,6 +17,12 @@ jobs:
         registry: ${{ vars.PUBLIC_REGISTRY }}
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Login to TCR
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ vars.TCR_REGISTRY }}
+        username: ${{ secrets.TCR_USERNAME }}
+        password: ${{ secrets.TCR_TOKEN }}
     - name: Setup QEMU
       uses: docker/setup-qemu-action@v3
     - name: Setup Docker Buildx
@@ -30,6 +36,10 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: 1.22.x
+    - name: Install Hangar
+      uses: cnrancher/hangar/.github/actions/install-hangar@main
+      with:
+        version: v1.9.0-beta.6
     - name: Lint
       uses: golangci/golangci-lint-action@v6
       with:
@@ -50,12 +60,23 @@ jobs:
         distribution: goreleaser
         version: "~> v2"
         args: release --clean --verbose
-    - name: Image Push
+    - name: Image Push DockerHub
       run: |
         make image-push
       env:
         TAG: ${{ github.ref_name }}
         REPO: ${{ vars.PUBLIC_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
+    - name: Image Push TCR
+      run: |
+        set -x
+        make image-push
+
+        echo "${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}/cce-operator:${{ github.ref_name }}" > images.txt
+        hangar sign -f images.txt --oidc-provider=github-actions
+        rm images.txt
+      env:
+        TAG: ${{ github.ref_name }}
+        REPO: ${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
     - name: Upload Charts
       env:
         TAG: ${{ github.ref_name }}
