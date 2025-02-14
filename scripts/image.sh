@@ -31,6 +31,8 @@ set -x
 
 docker buildx build -f package/Dockerfile \
     --builder ${BUILDER} \
+    --provenance true \
+    --sbom true \
     -t "${REPO}/cce-operator:${TAG}" \
     --platform=${TARGET_PLATFORMS} ${BUILDX_OPTIONS} .
 
