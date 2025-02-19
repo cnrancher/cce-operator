@@ -1308,9 +1308,12 @@ func (h *Handler) createCASecret(config *ccev1.CCEClusterConfig) error {
 
 	var clusterCert cce_model.Clusters
 	for _, c := range *certs.Clusters {
-		if config.Spec.PublicAccess && utils.Value(c.Name) == "externalClusterTLSVerify" {
-			clusterCert = c
-			break
+		if utils.Value(c.Name) == "externalClusterTLSVerify" {
+			if config.Spec.Imported || config.Spec.PublicAccess {
+				// Imported cluster use public access if public endpoint exists.
+				clusterCert = c
+				break
+			}
 		}
 		if utils.Value(c.Name) == "internalCluster" {
 			clusterCert = c
