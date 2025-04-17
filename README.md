@@ -76,11 +76,9 @@ The version correspondence between CCE Operator and Rancher is as follows.
 
 | cce-operator | Rancher   |
 |:------------:|:---------:|
+| `v0.7.x`     | `v2.11.x` |
 | `v0.6.x`     | `v2.10.x` |
 | `v0.5.x`     | `v2.9.x`  |
-| `v0.4.x`     | `v2.8.x`  |
-| `v0.3.x`     | `v2.7.x`  |
-| `v0.2.x`     | `v2.6.x`  |
 
 ### LICENSE
 
