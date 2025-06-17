@@ -126,7 +126,8 @@ func GetCreateClusterRequest(config *ccev1.CCEClusterConfig) *model.CreateCluste
 			},
 			EniNetwork: &model.EniNetwork{},
 			Authentication: &model.Authentication{
-				Mode: &spec.Authentication.Mode,
+				Mode:                &spec.Authentication.Mode,
+				AuthenticatingProxy: &model.AuthenticatingProxy{},
 			},
 			BillingMode: &spec.BillingMode,
 			ServiceNetwork: &model.ServiceNetwork{
