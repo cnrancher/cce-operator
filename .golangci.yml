@@ -85,6 +85,10 @@ linters:
           - gosec
         path: pkg/eks/create.go$
         text: TLS InsecureSkipVerify set true.
+      - linters:
+          - revive
+        path: pkg/*
+        text: avoid meaningless package names
     paths:
       - third_party$
       - builtin$
