@@ -10,7 +10,6 @@ import (
 	"github.com/cnrancher/cce-operator/pkg/huawei/eip"
 	"github.com/cnrancher/cce-operator/pkg/huawei/nat"
 	"github.com/cnrancher/cce-operator/pkg/huawei/vpc"
-	"github.com/cnrancher/cce-operator/pkg/huawei/vpcep"
 	"github.com/cnrancher/cce-operator/pkg/utils"
 	cce_model "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/cce/v3/model"
 	"github.com/sirupsen/logrus"
@@ -333,33 +332,6 @@ func (h *Handler) deleteNetworkResources(
 		return config, true, nil
 	}
 	if vpcID != "" {
-		vpceps, err := vpcep.ListEndpointService(driver.VPCEP, "")
-		if err != nil {
-			return config, false, err
-		}
-		// Ensure VPC does not have associated VpcEndpointService (vpcepsvc).
-		var vpcepsvcID string
-		if vpceps.EndpointServices != nil && len(*vpceps.EndpointServices) > 0 {
-			for _, v := range *vpceps.EndpointServices {
-				if utils.Value(v.VpcId) != vpcID {
-					continue
-				}
-				vpcepsvcID = utils.Value(v.Id)
-				break
-			}
-		}
-		// VPC has associated VpcEndpointService, delete vpcepsvc before delete VPC.
-		if vpcepsvcID != "" {
-			_, err = vpcep.DeleteVpcepService(driver.VPCEP, vpcepsvcID)
-			if err != nil {
-				return config, false, err
-			}
-			logrus.WithFields(logrus.Fields{
-				"cluster": config.Name,
-				"phase":   "remove",
-			}).Infof("request to delete VpcEndpointService [%s]", vpcepsvcID)
-			return config, true, nil
-		}
 		_, err = vpc.ShowVPC(driver.VPC, vpcID)
 		if hwerr, _ := huawei.NewError(err); hwerr.StatusCode == 404 {
 			logrus.WithFields(logrus.Fields{
