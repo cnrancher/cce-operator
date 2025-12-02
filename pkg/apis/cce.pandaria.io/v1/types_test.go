@@ -104,7 +104,6 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 						BillingMode:     0,
 						OperatingSystem: "EulerOS 2.9",
 						PublicIP: CCENodePublicIP{
-							Count: 1,
 							Eip: CCEEip{
 								Iptype: "5_bgp",
 								Bandwidth: CCEEipBandwidth{

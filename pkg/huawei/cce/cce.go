@@ -347,8 +347,8 @@ func GetClusterCert(
 	}
 	request := &model.CreateKubernetesClusterCertRequest{
 		ClusterId: clusterID,
-		Body: &model.CertDuration{
-			Duration: duration,
+		Body: &model.ClusterCertDuration{
+			Duration: &duration,
 		},
 	}
 	res, err := client.CreateKubernetesClusterCert(request)

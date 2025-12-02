@@ -102,7 +102,7 @@ func GetUpdateNodePoolRequest(
 		NodepoolId: nodePool.ID,
 		Body: &model.NodePoolUpdate{
 			Metadata: &model.NodePoolMetadataUpdate{
-				Name: nodePool.Name,
+				Name: &nodePool.Name,
 			},
 			Spec: &model.NodePoolSpecUpdate{
 				NodeTemplate:     &model.NodeSpecUpdate{},
@@ -149,6 +149,12 @@ func DeleteNodePool(
 func GetCreateNodePoolRequest(
 	clusterID string, np *ccev1.CCENodePool,
 ) (*model.CreateNodePoolRequest, error) {
+	dv := make([]model.Volume, 0, len(np.NodeTemplate.DataVolumes))
+	bm := model.GetNodeTemplateBillingModeEnum().E_0
+	switch np.NodeTemplate.BillingMode {
+	case 1:
+		bm = model.GetNodeTemplateBillingModeEnum().E_1
+	}
 	nodePoolBody := &model.NodePool{
 		Kind:       "NodePool",
 		ApiVersion: "v3",
@@ -156,9 +162,9 @@ func GetCreateNodePoolRequest(
 			Name: np.Name,
 		},
 		Spec: &model.NodePoolSpec{
-			NodeTemplate: &model.NodeSpec{
-				Flavor: np.NodeTemplate.Flavor,
-				Az:     np.NodeTemplate.AvailableZone,
+			NodeTemplate: &model.NodeTemplate{
+				Flavor: &np.NodeTemplate.Flavor,
+				Az:     &np.NodeTemplate.AvailableZone,
 				Os:     &np.NodeTemplate.OperatingSystem,
 				Login: &model.Login{
 					SshKey: &np.NodeTemplate.SSHKey,
@@ -167,10 +173,11 @@ func GetCreateNodePoolRequest(
 					Size:       np.NodeTemplate.RootVolume.Size,
 					Volumetype: np.NodeTemplate.RootVolume.Type,
 				},
-				DataVolumes: make([]model.Volume, 0, len(np.NodeTemplate.DataVolumes)),
-				PublicIP:    &model.NodePublicIp{},
+				DataVolumes: &dv,
+				PublicIP:    &model.NodeEipSpec{},
 				Count:       utils.Pointer(int32(1)),
-				BillingMode: &np.NodeTemplate.BillingMode,
+				// BillingMode: &np.NodeTemplate.BillingMode,
+				BillingMode: &bm,
 				ExtendParam: &model.NodeExtendParam{
 					PeriodType:  &np.NodeTemplate.ExtendParam.PeriodType,
 					PeriodNum:   &np.NodeTemplate.ExtendParam.PeriodNum,
@@ -199,32 +206,28 @@ func GetCreateNodePoolRequest(
 		npType = model.GetNodePoolSpecTypeEnum().VM
 	}
 	nodePoolBody.Spec.Type = &npType
+	dataVolumes := []model.Volume{}
 	for _, dv := range np.NodeTemplate.DataVolumes {
-		nodePoolBody.Spec.NodeTemplate.DataVolumes = append(nodePoolBody.Spec.NodeTemplate.DataVolumes,
+		dataVolumes = append(dataVolumes,
 			model.Volume{
 				Size:       dv.Size,
 				Volumetype: dv.Type,
 			},
 		)
 	}
+	nodePoolBody.Spec.NodeTemplate.DataVolumes = &dataVolumes
 
-	if len(np.NodeTemplate.PublicIP.IDs) > 0 {
-		nodePoolBody.Spec.NodeTemplate.PublicIP.Ids = &np.NodeTemplate.PublicIP.IDs
-	}
 	chargeMode := "traffic"
 	if np.NodeTemplate.PublicIP.Eip.Bandwidth.ChargeMode != "traffic" {
 		chargeMode = ""
 	}
-	if np.NodeTemplate.PublicIP.Count > 0 {
-		nodePoolBody.Spec.NodeTemplate.PublicIP.Count = &np.NodeTemplate.PublicIP.Count
-		nodePoolBody.Spec.NodeTemplate.PublicIP.Eip = &model.NodeEipSpec{
-			Iptype: np.NodeTemplate.PublicIP.Eip.Iptype,
-			Bandwidth: &model.NodeBandwidth{
-				Chargemode: &chargeMode,
-				Size:       &np.NodeTemplate.PublicIP.Eip.Bandwidth.Size,
-				Sharetype:  &np.NodeTemplate.PublicIP.Eip.Bandwidth.ShareType,
-			},
-		}
+	nodePoolBody.Spec.NodeTemplate.PublicIP = &model.NodeEipSpec{
+		Iptype: np.NodeTemplate.PublicIP.Eip.Iptype,
+		Bandwidth: &model.NodeBandwidth{
+			Chargemode: &chargeMode,
+			Size:       &np.NodeTemplate.PublicIP.Eip.Bandwidth.Size,
+			Sharetype:  &np.NodeTemplate.PublicIP.Eip.Bandwidth.ShareType,
+		},
 	}
 	var runtime model.RuntimeName
 	switch np.NodeTemplate.Runtime {

@@ -117,15 +117,19 @@ func BuildUpstreamNodePoolConfigs(
 			np.Spec.NodeTemplate == nil || np.Spec.Autoscaling == nil {
 			continue
 		}
+		if np.Spec.NodeTemplate.BillingMode == nil {
+			b := huawei_cce_model.GetNodeTemplateBillingModeEnum().E_0
+			np.Spec.NodeTemplate.BillingMode = &b
+		}
 		config := ccev1.CCENodePool{
 			Name: np.Metadata.Name,
 			Type: np.Spec.Type.Value(),
 			ID:   utils.Value(np.Metadata.Uid),
 			NodeTemplate: ccev1.CCENodeTemplate{
-				Flavor:          np.Spec.NodeTemplate.Flavor,
-				AvailableZone:   np.Spec.NodeTemplate.Az,
+				Flavor:          utils.Value(np.Spec.NodeTemplate.Flavor),
+				AvailableZone:   utils.Value(np.Spec.NodeTemplate.Az),
 				OperatingSystem: utils.Value(np.Spec.NodeTemplate.Os),
-				BillingMode:     utils.Value(np.Spec.NodeTemplate.BillingMode),
+				BillingMode:     np.Spec.NodeTemplate.BillingMode.Value(),
 			},
 			InitialNodeCount: utils.Value(np.Spec.InitialNodeCount),
 			Autoscaling: ccev1.CCENodePoolNodeAutoscaling{
@@ -147,8 +151,8 @@ func BuildUpstreamNodePoolConfigs(
 				Type: np.Spec.NodeTemplate.RootVolume.Volumetype,
 			}
 		}
-		if len(np.Spec.NodeTemplate.DataVolumes) > 0 {
-			for _, v := range np.Spec.NodeTemplate.DataVolumes {
+		if np.Spec.NodeTemplate.DataVolumes != nil && len(*np.Spec.NodeTemplate.DataVolumes) > 0 {
+			for _, v := range *np.Spec.NodeTemplate.DataVolumes {
 				config.NodeTemplate.DataVolumes = append(config.NodeTemplate.DataVolumes,
 					ccev1.CCENodeVolume{
 						Size: v.Size,
@@ -158,16 +162,12 @@ func BuildUpstreamNodePoolConfigs(
 			}
 		}
 		if np.Spec.NodeTemplate.PublicIP != nil {
-			config.NodeTemplate.PublicIP.IDs = utils.Value(np.Spec.NodeTemplate.PublicIP.Ids)
-			config.NodeTemplate.PublicIP.Count = utils.Value(np.Spec.NodeTemplate.Count)
-			if np.Spec.NodeTemplate.PublicIP.Eip != nil {
-				config.NodeTemplate.PublicIP.Eip.Iptype = np.Spec.NodeTemplate.PublicIP.Eip.Iptype
-				if np.Spec.NodeTemplate.PublicIP.Eip.Bandwidth != nil {
-					config.NodeTemplate.PublicIP.Eip.Bandwidth = ccev1.CCEEipBandwidth{
-						ChargeMode: utils.Value(np.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Chargemode),
-						Size:       utils.Value(np.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Size),
-						ShareType:  utils.Value(np.Spec.NodeTemplate.PublicIP.Eip.Bandwidth.Sharetype),
-					}
+			config.NodeTemplate.PublicIP.Eip.Iptype = np.Spec.NodeTemplate.PublicIP.Iptype
+			if np.Spec.NodeTemplate.PublicIP.Bandwidth != nil {
+				config.NodeTemplate.PublicIP.Eip.Bandwidth = ccev1.CCEEipBandwidth{
+					ChargeMode: utils.Value(np.Spec.NodeTemplate.PublicIP.Bandwidth.Chargemode),
+					Size:       utils.Value(np.Spec.NodeTemplate.PublicIP.Bandwidth.Size),
+					ShareType:  utils.Value(np.Spec.NodeTemplate.PublicIP.Bandwidth.Sharetype),
 				}
 			}
 		}

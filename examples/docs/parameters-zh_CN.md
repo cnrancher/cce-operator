@@ -109,7 +109,6 @@
                     }
                 ],
                 "publicIP": { // 节点公网IP配置 （保留字段，节点池不支持配置节点公网IP）
-                //     "count": 1,
                 //     "eip": {
                 //         "ipType": "5_bgp",
                 //         "bandwidth": {

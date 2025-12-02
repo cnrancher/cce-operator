@@ -563,20 +563,20 @@ func (h *Handler) generateAndSetNetworking(config *ccev1.CCEClusterConfig) (*cce
 			"cluster": config.Name,
 			"phase":   "create",
 		}).Infof("created NAT Gateway [%s] ID [%s]",
-			natRes.NatGateway.Name, natRes.NatGateway.Id)
+			utils.Value(natRes.NatGateway.Name), utils.Value(natRes.NatGateway.Id))
 		// Use the RetryOnConflict to prevent repeated creation of NAT Gateway.
 		if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			result, err := h.configCache.Get(config.Namespace, config.Name)
 			if err != nil {
 				return err
 			}
-			if result.Status.CreatedNatGatewayID == natRes.NatGateway.Id {
+			if result.Status.CreatedNatGatewayID == utils.Value(natRes.NatGateway.Id) {
 				config = result
 				return nil
 			}
 
 			result = result.DeepCopy()
-			result.Status.CreatedNatGatewayID = natRes.NatGateway.Id
+			result.Status.CreatedNatGatewayID = utils.Value(natRes.NatGateway.Id)
 			result, err = h.configClient.UpdateStatus(result)
 			if err != nil {
 				return err
