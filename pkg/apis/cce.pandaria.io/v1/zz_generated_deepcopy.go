@@ -429,7 +429,6 @@ func (in *CCENodeTemplate) DeepCopyInto(out *CCENodeTemplate) {
 		*out = make([]CCENodeVolume, len(*in))
 		copy(*out, *in)
 	}
-	out.PublicIP = in.PublicIP
 	out.ExtendParam = in.ExtendParam
 	return
 }

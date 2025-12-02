@@ -161,16 +161,6 @@ func BuildUpstreamNodePoolConfigs(
 				)
 			}
 		}
-		if np.Spec.NodeTemplate.PublicIP != nil {
-			config.NodeTemplate.PublicIP.Eip.Iptype = np.Spec.NodeTemplate.PublicIP.Iptype
-			if np.Spec.NodeTemplate.PublicIP.Bandwidth != nil {
-				config.NodeTemplate.PublicIP.Eip.Bandwidth = ccev1.CCEEipBandwidth{
-					ChargeMode: utils.Value(np.Spec.NodeTemplate.PublicIP.Bandwidth.Chargemode),
-					Size:       utils.Value(np.Spec.NodeTemplate.PublicIP.Bandwidth.Size),
-					ShareType:  utils.Value(np.Spec.NodeTemplate.PublicIP.Bandwidth.Sharetype),
-				}
-			}
-		}
 		if np.Spec.NodeTemplate.Runtime != nil && np.Spec.NodeTemplate.Runtime.Name != nil {
 			config.NodeTemplate.Runtime = np.Spec.NodeTemplate.Runtime.Name.Value()
 		}

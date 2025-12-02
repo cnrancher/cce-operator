@@ -217,18 +217,6 @@ func GetCreateNodePoolRequest(
 	}
 	nodePoolBody.Spec.NodeTemplate.DataVolumes = &dataVolumes
 
-	chargeMode := "traffic"
-	if np.NodeTemplate.PublicIP.Eip.Bandwidth.ChargeMode != "traffic" {
-		chargeMode = ""
-	}
-	nodePoolBody.Spec.NodeTemplate.PublicIP = &model.NodeEipSpec{
-		Iptype: np.NodeTemplate.PublicIP.Eip.Iptype,
-		Bandwidth: &model.NodeBandwidth{
-			Chargemode: &chargeMode,
-			Size:       &np.NodeTemplate.PublicIP.Eip.Bandwidth.Size,
-			Sharetype:  &np.NodeTemplate.PublicIP.Eip.Bandwidth.ShareType,
-		},
-	}
 	var runtime model.RuntimeName
 	switch np.NodeTemplate.Runtime {
 	case "docker":

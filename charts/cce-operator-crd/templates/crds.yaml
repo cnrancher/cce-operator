@@ -221,26 +221,6 @@ spec:
                         operatingSystem:
                           nullable: true
                           type: string
-                        publicIP:
-                          properties:
-                            eip:
-                              properties:
-                                bandwidth:
-                                  properties:
-                                    chargeMode:
-                                      nullable: true
-                                      type: string
-                                    shareType:
-                                      nullable: true
-                                      type: string
-                                    size:
-                                      type: integer
-                                  type: object
-                                ipType:
-                                  nullable: true
-                                  type: string
-                              type: object
-                          type: object
                         rootVolume:
                           properties:
                             size:

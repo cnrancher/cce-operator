@@ -103,17 +103,7 @@ func Test_CCEClusterConfig_Create(t *testing.T) {
 						},
 						BillingMode:     0,
 						OperatingSystem: "EulerOS 2.9",
-						PublicIP: CCENodePublicIP{
-							Eip: CCEEip{
-								Iptype: "5_bgp",
-								Bandwidth: CCEEipBandwidth{
-									ChargeMode: "traffic",
-									Size:       1,
-									ShareType:  "PER",
-								},
-							},
-						},
-						Runtime: "containerd",
+						Runtime:         "containerd",
 						ExtendParam: CCENodeExtendParam{
 							PeriodType:  "month",
 							PeriodNum:   1,

@@ -130,7 +130,6 @@ type CCENodeTemplate struct {
 	SSHKey          string             `json:"sshKey"`          // SSH 密钥名称（不支持帐号密码登录）
 	RootVolume      CCENodeVolume      `json:"rootVolume"`      // 节点的系统盘
 	DataVolumes     []CCENodeVolume    `json:"dataVolumes"`     // 节点的数据盘
-	PublicIP        CCENodePublicIP    `json:"publicIP"`        // 节点公网IP
 	BillingMode     int32              `json:"billingMode"`     // 节点计费模式
 	Runtime         string             `json:"runtime"`         // 容器运行时，docker 或 containerd
 	ExtendParam     CCENodeExtendParam `json:"extendParam"`     // 节点扩展参数

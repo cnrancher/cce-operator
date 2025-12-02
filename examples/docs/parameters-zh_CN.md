@@ -108,16 +108,6 @@
                         "type": "SSD"
                     }
                 ],
-                "publicIP": { // 节点公网IP配置 （保留字段，节点池不支持配置节点公网IP）
-                //     "eip": {
-                //         "ipType": "5_bgp",
-                //         "bandwidth": {
-                //             "chargeMode": "traffic",
-                //             "size": 1,
-                //             "shareType": "PER"
-                //         }
-                //     }
-                },
                 "billingMode": 0, // 节点计费模式
                 "runtime": "containerd", // 容器运行时
                 "extendParam": { // 节点扩展参数
