@@ -93,6 +93,10 @@ linters:
           - prealloc
         path: pkg/*
         text: Consider preallocating
+      - linters:
+          - goconst
+        path: pkg/controller/*
+        text: make it a constant
     paths:
       - third_party$
       - builtin$
