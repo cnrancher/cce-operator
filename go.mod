@@ -1,6 +1,8 @@
 module github.com/cnrancher/cce-operator
 
-go 1.26.5
+go 1.26.0
+
+toolchain go1.26.5
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80
 
